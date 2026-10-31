@@ -1,0 +1,30 @@
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+
+# Local environment variables (keep templates)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Dependencies
+node_modules/
+
+# Build output and test coverage
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+
+# Personal directory
+daeunki2/
