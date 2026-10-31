@@ -10,7 +10,7 @@ from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-
+"""Check whether the Flask server is running."""
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"})

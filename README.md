@@ -19,7 +19,7 @@
 
 ## Docker development environment
 
-Docker provides Node.js, Python with backend dependencies, and PostgreSQL. No frontend application or packages are included. Frontend and backend containers stay idle until you run commands manually. No application code or health endpoint is required to start the environment.
+Docker provides Node.js, Python with backend dependencies, and PostgreSQL. The front container starts a temporary HTTP server using Node.js built-in modules and responds with plain text `ok`. No Angular project or frontend packages are included. Flask starts automatically. Both servers have HTTP healthchecks.
 
 ```sh
 # First-time setup: copy the template and set a local DB password.
@@ -34,8 +34,10 @@ docker compose exec back sh
 docker compose down
 ```
 
-Local `front/` and `back/` directories are mounted into the containers. Set up your frontend project and dependencies when you are ready. Rebuild the backend image after changing its requirements.
+Local `front/` and `back/` directories are mounted into the containers. The temporary Node.js server only checks the environment; replace its Dockerfile command when the frontend project is ready. Rebuild after changing Dockerfiles or backend requirements.
 
-When you are ready, run your application manually inside the corresponding container. Servers must listen on `0.0.0.0`: frontend port `4200` maps to `localhost:8080` (configurable with `APP_PORT`), and backend port `5000` maps to `localhost:5001`. These addresses do not serve an application until you start one.
+The backend listens on `0.0.0.0:5000` inside Docker and is available at `http://localhost:5001/health` on your computer. Python code changes trigger an automatic reload. After changing the Dockerfile or requirements, run `docker compose up --build -d back`. View server logs with `docker compose logs -f back`.
+
+The frontend listens on `0.0.0.0:4200`, mapped to `http://localhost:8080` (configurable with `APP_PORT`). The response is plain text `ok`. Run `docker compose ps` to check server health.
 
 PostgreSQL starts automatically and is accessible from the backend at `db:5432`. Each developer keeps their own `.env`; database credentials are initialized only when the database volume is first created.
