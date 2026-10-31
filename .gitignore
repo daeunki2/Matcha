@@ -28,3 +28,9 @@ coverage/
 
 # Personal directory
 daeunki2/
+
+# Python and Angular caches
+__pycache__/
+*.py[cod]
+.venv/
+.angular/

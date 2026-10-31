@@ -1,0 +1,7 @@
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: flex; font-family: system-ui, sans-serif; color: #213b30; background: #f5f8f3; }
+app-root { display: flex; flex-direction: column; width: 100%; min-height: 100vh; }
+header, footer { padding: 1.5rem clamp(1rem, 5vw, 4rem); }
+main { flex: 1; width: min(100%, 60rem); margin: auto; padding: 4rem 1.5rem; }
+h1 { font-size: clamp(2rem, 6vw, 3.5rem); }
+footer { color: #52675b; }

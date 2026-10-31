@@ -9,4 +9,11 @@
 - Meet weekly to review code and plan for the following week
 
 3. Infrastructure
-- Set up the infrastructure using Docker and Nginx.
+- Set up the infrastructure using Docker Compose.
+
+4. Stack
+- Frontend: Angular / TypeScript
+- Backend: Flask / Python
+- Infrastructure: Docker Compose
+- Database: PostgreSQL
+
