@@ -1,18 +1,17 @@
-"""Entry point for the Flask backend application.
 
-Responsibilities:
-    - Initialize the Flask application.
-    - Register API routes using Blueprints.
-    - Configure and start the development server.
-"""
+"""Entry point for the Flask backend application."""
 
 from flask import Flask, jsonify
+from app.auth.router import auth_bp
 
 app = Flask(__name__)
 
-"""Check whether the Flask server is running."""
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+
+
 @app.get("/health")
 def health():
+    """Check whether the Flask server is running."""
     return jsonify({"status": "ok"})
 
 

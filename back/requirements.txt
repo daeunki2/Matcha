@@ -1,8 +1,17 @@
-Flask==3.1.3
-Werkzeug==3.1.6
-Jinja2==3.1.6
-MarkupSafe==3.0.2
-itsdangerous==2.2.0
-click==8.2.1
-blinker==1.9.0
-psycopg[binary]==3.2.9
+
+# Web framework
+Flask==3.1.3                  # Backend web framework
+
+# Flask dependencies
+Werkzeug==3.1.6               # HTTP utilities, routing, and request handling
+Jinja2==3.1.6                 # HTML template engine
+MarkupSafe==3.0.2             # Safe HTML string handling
+itsdangerous==2.2.0           # Cryptographically signed data and tokens
+click==8.2.1                  # Command-line interface utilities
+blinker==1.9.0                # Application signals and event notifications
+
+# Database
+psycopg[binary]==3.2.9        # PostgreSQL database driver
+
+# Security
+argon2-cffi>=23.1,<26         # Secure password hashing using Argon2
