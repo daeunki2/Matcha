@@ -1,5 +1,4 @@
-"""Authentication request validation."""
-import hashlib
+from app.auth.password_security import is_password_acceptable
 
 def validate_registration(data):
     """Validate registration request data."""
@@ -34,19 +33,13 @@ def validate_registration(data):
         if field == "first_name" and len(value) > 100:
             raise ValueError(f"{field} is too long")
 
+    validate_password(data["password"])
     return data
 
 
-
-
 def validate_password(password):
-    blocked = {"password", "12345678", "qwerty123"}
-
     if len(password) < 8:
         raise ValueError("Password must be at least 8 characters")
 
-    if password.lower() in blocked:
-        raise ValueError("Password is too common")
-
-
-def get_hash_parts(password):
+    if not is_password_acceptable(password):
+        raise ValueError("Password is too weak")

@@ -1,7 +1,7 @@
-import hashlib
+from zxcvbn import zxcvbn
 
 
-def get_hash_parts(password):
-    hashed = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
-
-    return prefix, suffix
+def is_password_acceptable(password):
+    if zxcvbn(password)["score"] < 2:
+        return False
+    return True

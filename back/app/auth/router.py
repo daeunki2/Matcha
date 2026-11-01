@@ -1,8 +1,10 @@
+
 from flask import Blueprint, request, jsonify
+from psycopg.errors import UniqueViolation
 
 from app.auth.schemas import validate_registration
-from app.auth.service import register_user
-from psycopg.errors import UniqueViolation
+from app.auth.service import register_user, verify_email
+from app.auth.email_service import EmailDeliveryError
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -29,5 +31,29 @@ def register():
         )
     except UniqueViolation:
         return jsonify({"error": "Username or email already exists"}), 409
+    except EmailDeliveryError:
+        return jsonify({
+            "error": "Account created, but verification email delivery failed.",
+            "code": "EMAIL_DELIVERY_FAILED",
+        }), 503
 
     return jsonify({"user_id": user_id}), 201
+
+
+@auth_bp.route("/verify-email", methods=["POST"])
+def verify_email_route():
+    """Handle an email verification request."""
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({"message": "Invalid verification request."}), 400
+
+    token = data.get("token")
+
+    if not isinstance(token, str) or not token:
+        return jsonify({"message": "Invalid verification request."}), 400
+
+    if not verify_email(token):
+        return jsonify({"message": "Invalid or expired verification link."}), 400
+
+    return jsonify({"message": "Your email has been verified successfully."}), 200
