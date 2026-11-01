@@ -1,0 +1,14 @@
+<app-auth-layout
+  [title]="'Welcome Back'"
+  [subtitle]="'Please login to your account.'"
+>
+	<form [formGroup]="form" (ngSubmit)="onSubmit()">
+		<label for="email">Email</label>
+		<input class="login-input" type="email" required formControlName="email" />
+		<label for="password">Password</label>
+		<input class="login-input" type="password" required formControlName="password" />
+		<button matButton type="submit" class="login-button">Login</button>
+	</form>
+	<a class="matcha-link" href="/forgot-password">Forgot Password?</a>
+	<a class="matcha-link" href="/signup">Don't have an account? Sign Up</a>
+</app-auth-layout>

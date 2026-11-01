@@ -1,0 +1,34 @@
+.auth-layout {
+	background: var(--mat-sys-primary-container);
+	color: var(--mat-sys-on-primary-container);
+	border: 1px solid var(--mat-sys-outline-variant);
+	border-radius: 1rem;
+	font: var(--mat-sys-body-large);
+	width: 400px;
+	padding: 2rem;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	box-shadow: var(--mat-sys-level1);
+
+	@media (max-width: 400px) {
+		width: 100%;
+	}
+}
+
+.auth-app-name {
+	font: var(--mat-sys-title-medium);
+	margin-bottom: 2rem;
+}
+
+.auth-title {
+	font: var(--mat-sys-headline-large);
+	font-weight: bold;
+	margin: 0;
+}
+
+.auth-subtitle {
+	font: var(--mat-sys-body-medium);
+	margin: 0 0 2rem 0;
+}
