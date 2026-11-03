@@ -2,12 +2,11 @@ import { Component, inject } from '@angular/core';
 import { AuthLayout } from '../auth-layout/auth-layout';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { passwordValidator } from '../shared/password.validator';
-import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth/auth.service';
 
 @Component({
-  imports: [AuthLayout, ReactiveFormsModule, MatButtonModule],
+  imports: [AuthLayout, ReactiveFormsModule],
   selector: 'app-signup',
   styleUrl: './signup.scss',
   templateUrl: './signup.html',

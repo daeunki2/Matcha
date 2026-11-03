@@ -3,12 +3,12 @@
   [subtitle]="'Please login to your account.'"
 >
 	<form [formGroup]="form" (ngSubmit)="onSubmit()">
-		<label for="email">Email</label>
-		<input class="login-input" type="email" required formControlName="email" />
-		<label for="password">Password</label>
-		<input class="login-input" type="password" required formControlName="password" />
-		<button matButton type="submit" class="login-button">Login</button>
+		<label class="auth-label" for="email">Email</label>
+		<input class="auth-input" type="email" required formControlName="email" autocomplete="email" />
+		<label class="auth-label" for="password">Password</label>
+		<input class="auth-input" type="password" required formControlName="password" autocomplete="current-password" />
+		<button type="submit" class="auth-button">Log in</button>
 	</form>
-	<a class="matcha-link" href="/forgot-password">Forgot Password?</a>
-	<a class="matcha-link" href="/signup">Don't have an account? Sign Up</a>
+	<a class="auth-link" href="/forgot-password">Forgot Password?</a>
+	<span class="auth-link">New to matcha? <a href="/signup">Create account</a></span>
 </app-auth-layout>
