@@ -1,0 +1,34 @@
+<app-auth-layout
+  [title]="'SignUp'"
+  [subtitle]="'Welcome! Please sign up for your account.'"
+>
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()">
+<label class="auth-label" for="firstName">First Name</label>
+<input class="auth-input" type="text" formControlName="firstname"  autocomplete="given-name" />
+<label class="auth-label" for="lastName">Last Name</label>
+<input class="auth-input" type="text" formControlName="lastname"  autocomplete="family-name" />
+<label class="auth-label" for="username">Username</label>
+  <input
+  class="auth-input"
+	type="text"
+	formControlName="username"
+  autocomplete="username"
+  />
+<label class="auth-label" for="email">Email</label>
+  <input
+  class="auth-input"
+	type="email"
+  autocomplete="email"
+	formControlName="email"
+  />
+<label class="auth-label" for="password">Password</label>
+  <input
+  class="auth-input"
+	type="password"
+	formControlName="password"
+  />
+  <button class="auth-button" type="submit">Register</button>
+</form>
+  <span class="auth-link">Already have an account? <a href="/login">Log in</a></span>
+</app-auth-layout>
