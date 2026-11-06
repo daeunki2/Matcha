@@ -9,7 +9,7 @@ from app.auth.email_service import EmailDeliveryError
 auth_bp = Blueprint("auth", __name__)
 
 
-@auth_bp.route("/register", methods=["POST"])
+@auth_bp.route("/signup", methods=["POST"])
 def register():
     data = request.get_json(silent=True)
 
