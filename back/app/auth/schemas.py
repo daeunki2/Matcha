@@ -1,4 +1,5 @@
 from app.auth.password_security import is_password_acceptable
+import re
 
 def validate_registration(data):
     """Validate registration request data."""
@@ -34,7 +35,25 @@ def validate_registration(data):
             raise ValueError(f"{field} is too long")
 
     validate_password(data["password"])
+    validate_email_format(data["email"])
     return data
+
+
+def validate_login(data):
+    """Validate login request data."""
+    email = data.get("email")
+    password = data.get("password")
+
+    validate_email_format(email)
+
+    if not isinstance(password, str) or not password:
+        raise ValueError("Invalid password")
+
+    return {
+        "email": email,
+        "password": password,
+    }
+
 
 
 def validate_password(password):
@@ -43,3 +62,17 @@ def validate_password(password):
 
     if not is_password_acceptable(password):
         raise ValueError("Password is too weak")
+    
+def validate_email_format(email):
+    """Validate basic email address format."""
+    if not isinstance(email, str):
+        raise ValueError("Invalid email format")
+
+    if len(email) > 255:
+        raise ValueError("Email is too long")
+
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise ValueError("Invalid email format")
+
+
+

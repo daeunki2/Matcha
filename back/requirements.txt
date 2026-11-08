@@ -17,4 +17,5 @@ psycopg[binary]==3.2.9        # PostgreSQL database driver
 argon2-cffi>=23.1,<26         # Secure password hashing using Argon2
 zxcvbn                        # Password strength estimation
 
-#email 
+#jwt token 
+PyJWT

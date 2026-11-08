@@ -1,12 +1,22 @@
-"""Authentication business logic."""
-from datetime import datetime, timedelta, timezone
-from app.auth.tokens import (create_email_verification_token,hash_email_verification_token,)
-from app.db.session import get_connection
-from argon2 import PasswordHasher
-from app.auth.email_service import EmailDeliveryError, send_verification_email
+import hashlib
 import logging
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+
+import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+
+from app.auth import tokens
+from app.auth.email_service import EmailDeliveryError, send_verification_email
+from app.db.session import get_connection
+
+class EmailNotVerifiedError(Exception):
+    pass
 
 logger = logging.getLogger(__name__)
+password_hasher = PasswordHasher()
 
 def register_user(username, email, password, first_name, last_name):
     """Register a user with a hashed password."""
@@ -41,7 +51,6 @@ def create_user(conn, username, email, password_hash, first_name, last_name):
 
 def hash_password(password):
     """Hash a plaintext password."""
-    password_hasher = PasswordHasher()
     return password_hasher.hash(password)
 
 
@@ -91,3 +100,152 @@ def verify_email(token):
         )
 
     return True
+
+def find_unverified_user(conn, email):
+    """Find an unverified user by email."""
+    result = conn.execute(
+        """
+        SELECT id
+        FROM users
+        WHERE email = %s
+        AND is_verified = FALSE
+        """,
+        (email,),
+    )
+    row = result.fetchone()
+    return row[0] if row is not None else None
+
+def resend_verification_email(email):
+    """Resend a verification email to an unverified user."""
+    with get_connection() as conn:
+        user_id = find_unverified_user(conn, email)
+
+        if user_id is None:
+            return
+
+        conn.execute(
+            """
+            UPDATE email_verification_tokens
+            SET expires_at = NOW()
+            WHERE user_id = %s
+            AND used_at IS NULL
+            """,
+            (user_id,),
+        )
+
+        token = create_verification_record(conn, user_id)
+
+    try:
+        send_verification_email(email=email, token=token)
+    except EmailDeliveryError:
+        logger.exception("Verification email resend failed")
+        raise
+
+def authenticate_user(email, password):
+    """Find a user by email."""
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            SELECT id, email, password_hash, is_verified
+            FROM users
+            WHERE email = %s
+            """,
+            (email,),
+        ).fetchone()
+    if user is None:
+        return None
+
+    if not verify_password(password, user[2]):
+        return None
+
+    if not user[3]:
+        raise EmailNotVerifiedError()
+    return user
+
+
+def verify_password(password, stored_hash):
+    """Verify a password against its stored hash."""
+    try:
+        return password_hasher.verify(stored_hash, password)
+    except VerifyMismatchError:
+        return False
+    
+    
+
+def create_session(user_id):
+    """Create a new login session."""
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+    with get_connection() as conn:
+        session = conn.execute(
+            """
+            INSERT INTO sessions (user_id, expires_at)
+            VALUES (%s, %s)
+            RETURNING id
+            """,
+            (user_id, expires_at),
+        ).fetchone()
+
+    return session[0]
+
+def create_access_token(user_id, session_id):
+    """Create a signed access JWT."""
+    now = datetime.now(timezone.utc)
+
+    payload = {
+        "sub": str(user_id),
+        "sid": str(session_id),
+        "type": "access",
+        "iat": now,
+        "exp": now + timedelta(minutes=15),
+    }
+
+    secret_key = os.environ["JWT_SECRET_KEY"]
+
+    return jwt.encode(payload, secret_key, algorithm="HS256")
+
+def create_refresh_token(user_id, session_id):
+    """Create a signed refresh JWT."""
+    now = datetime.now(timezone.utc)
+
+    payload = {
+        "sub": str(user_id),
+        "sid": str(session_id),
+        "type": "refresh",
+        "jti": secrets.token_urlsafe(32),
+        "iat": now,
+        "exp": now + timedelta(days=7),
+    }
+    secret_key = os.environ["JWT_SECRET_KEY"]
+    refresh_token = jwt.encode(payload, secret_key, algorithm="HS256")
+    token_hash = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
+    
+    
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE sessions
+            SET refresh_token_hash = %s
+            WHERE id = %s
+            """,
+            (token_hash, session_id),
+        )
+    return refresh_token
+
+
+def decode_refresh_token(token):
+    """Validate and decode a refresh JWT."""
+    try:
+        payload = jwt.decode(
+            token,
+            os.environ["JWT_SECRET_KEY"],
+            algorithms=["HS256"],
+            options={"require": ["sub", "sid", "type", "iat", "exp", "jti"]},
+        )
+    except jwt.InvalidTokenError:
+        return None
+
+    if payload.get("type") != "refresh":
+        return None
+
+    return payload
