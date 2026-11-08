@@ -249,3 +249,60 @@ def decode_refresh_token(token):
         return None
 
     return payload
+
+def decode_access_token(token):
+    """Validate and decode an access JWT."""
+    try:
+        payload = jwt.decode(
+            token,
+            os.environ["JWT_SECRET_KEY"],
+            algorithms=["HS256"],
+            options={"require": ["sub", "sid", "type", "iat", "exp"]},
+        )
+    except jwt.InvalidTokenError:
+        return None
+
+    if payload.get("type") != "access":
+        return None
+
+    return payload
+
+def get_authenticated_user(payload):
+    """Return the user associated with a valid session."""
+    try:
+        user_id = int(payload["sub"])
+        session_id = int(payload["sid"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            SELECT
+                u.id,
+                u.username,
+                u.first_name,
+                u.last_name,
+                u.email,
+                u.is_verified
+            FROM users AS u
+            JOIN sessions AS s ON s.user_id = u.id
+            WHERE u.id = %s
+            AND s.id = %s
+            AND s.revoked_at IS NULL
+            AND s.expires_at > NOW()
+            """,
+            (user_id, session_id),
+        ).fetchone()
+
+    if user is None:
+        return None
+
+    return {
+        "id": user[0],
+        "username": user[1],
+        "first_name": user[2],
+        "last_name": user[3],
+        "email": user[4],
+        "is_verified": user[5],
+    }

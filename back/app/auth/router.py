@@ -150,3 +150,24 @@ def login():
     )
 
     return response, 200
+
+
+@auth_bp.route("/me", methods=["GET"])
+def get_current_user():
+    """Return the currently authenticated user."""
+    access_token = request.cookies.get("access_token")
+
+    if not access_token:
+        return jsonify({"message": "Authentication required."}), 401
+
+    payload = service.decode_access_token(access_token)
+
+    if payload is None:
+        return jsonify({"message": "Authentication required."}), 401
+
+    user = service.get_authenticated_user(payload)
+
+    if user is None:
+        return jsonify({"message": "Authentication required."}), 401
+
+    return jsonify(user), 200
