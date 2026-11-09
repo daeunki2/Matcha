@@ -56,8 +56,8 @@ def hash_password(password):
 
 def create_verification_record(conn, user_id):
     """Create and store a one-time email verification token."""
-    token = create_email_verification_token()
-    token_hash = hash_email_verification_token(token)
+    token = tokens.create_email_verification_token()
+    token_hash = tokens.hash_email_verification_token(token)
 
     expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
     conn.execute(
@@ -70,7 +70,7 @@ def create_verification_record(conn, user_id):
 
 def verify_email(token):
     """Verify a one-time email token and activate the user."""
-    token_hash = hash_email_verification_token(token)
+    token_hash = tokens.hash_email_verification_token(token)
 
     with get_connection() as conn:
         result = conn.execute(
@@ -305,4 +305,109 @@ def get_authenticated_user(payload):
         "last_name": user[3],
         "email": user[4],
         "is_verified": user[5],
+    }
+    
+def decode_refresh_token(token):
+    """Validate and decode a refresh JWT."""
+    try:
+        payload = jwt.decode(
+            token,
+            os.environ["JWT_SECRET_KEY"],
+            algorithms=["HS256"],
+            options={
+                "require": ["sub", "sid", "type", "iat", "exp", "jti"]
+            },
+        )
+    except jwt.InvalidTokenError:
+        return None
+
+    if payload.get("type") != "refresh":
+        return None
+
+    return payload
+
+def validate_refresh_session(token, payload):
+    """Validate the refresh token against its database session."""
+    try:
+        user_id = int(payload["sub"])
+        session_id = int(payload["sid"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    with get_connection() as conn:
+        session = conn.execute(
+            """
+            SELECT id, user_id
+            FROM sessions
+            WHERE id = %s
+            AND user_id = %s
+            AND refresh_token_hash = %s
+            AND revoked_at IS NULL
+            AND expires_at > NOW()
+            """,
+            (session_id, user_id, token_hash),
+        ).fetchone()
+
+    if session is None:
+        return None
+
+    return {
+        "session_id": session[0],
+        "user_id": session[1],
+    }
+    
+def rotate_refresh_token(token, payload):
+    """Atomically replace the current refresh token."""
+    try:
+        user_id = int(payload["sub"])
+        session_id = int(payload["sid"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    old_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    now = datetime.now(timezone.utc)
+    new_payload = {
+        "sub": str(user_id),
+        "sid": str(session_id),
+        "type": "refresh",
+        "iat": now,
+        "exp": now + timedelta(days=7),
+        "jti": secrets.token_urlsafe(32),
+    }
+
+    new_token = jwt.encode(
+        new_payload,
+        os.environ["JWT_SECRET_KEY"],
+        algorithm="HS256",
+    )
+
+    new_hash = hashlib.sha256(
+        new_token.encode("utf-8")
+    ).hexdigest()
+
+    with get_connection() as conn:
+        session = conn.execute(
+            """
+            UPDATE sessions
+            SET refresh_token_hash = %s
+            WHERE id = %s
+            AND user_id = %s
+            AND refresh_token_hash = %s
+            AND revoked_at IS NULL
+            AND expires_at > NOW()
+            RETURNING id
+            """,
+            (new_hash, session_id, user_id, old_hash),
+        ).fetchone()
+
+    if session is None:
+        return None
+
+    return {
+        "user_id": user_id,
+        "session_id": session_id,
+        "refresh_token": new_token,
     }

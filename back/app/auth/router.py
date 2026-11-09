@@ -8,6 +8,49 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/signup", methods=["POST"])
 def register():
+    """
+    Register a new user.
+    ---
+    tags:
+      - Authentication
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - email
+            - password
+            - first_name
+            - last_name
+          properties:
+            username:
+              type: string
+            email:
+              type: string
+            password:
+              type: string
+              format: password
+            first_name:
+              type: string
+            last_name:
+              type: string
+    responses:
+      202:
+        description: Registration request accepted
+      400:
+        description: Invalid input
+      409:
+        description: Username already taken
+      500:
+        description: Registration processing error
+      503:
+        description: Email delivery failed
+    """
     data = request.get_json(silent=True)
 
     if not isinstance(data, dict):
@@ -171,3 +214,57 @@ def get_current_user():
         return jsonify({"message": "Authentication required."}), 401
 
     return jsonify(user), 200
+
+
+@auth_bp.route("/refresh", methods=["POST"])
+def refresh_session():
+    """Rotate refresh token and issue new authentication cookies."""
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not refresh_token:
+        return jsonify({
+            "message": "Session expired. Please log in again."
+        }), 401
+
+    payload = service.decode_refresh_token(refresh_token)
+
+    if payload is None:
+        return jsonify({
+            "message": "Session expired. Please log in again."
+        }), 401
+
+    rotated = service.rotate_refresh_token(refresh_token, payload)
+
+    if rotated is None:
+        return jsonify({
+            "message": "Session expired. Please log in again."
+        }), 401
+
+    access_token = service.create_access_token(
+        rotated["user_id"],
+        rotated["session_id"],
+    )
+
+    response = jsonify({"message": "Session refreshed successfully."})
+
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=False,
+        samesite="Lax",
+        max_age=15 * 60,
+        path="/api",
+    )
+
+    response.set_cookie(
+        "refresh_token",
+        rotated["refresh_token"],
+        httponly=True,
+        secure=False,
+        samesite="Lax",
+        max_age=7 * 24 * 60 * 60,
+        path="/api/auth",
+    )
+
+    return response, 200

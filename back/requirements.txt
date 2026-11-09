@@ -19,3 +19,6 @@ zxcvbn                        # Password strength estimation
 
 #jwt token 
 PyJWT
+
+#swagger
+flasgger
