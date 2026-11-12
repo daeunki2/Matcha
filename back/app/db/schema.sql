@@ -21,6 +21,6 @@ CREATE TABLE sessions (
     user_id BIGINT NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
-    revoked_at TIMESTAMPTZ
+    revoked_at TIMESTAMPTZ,
     refresh_token_hash TEXT UNIQUE
 );
