@@ -44,6 +44,12 @@ paths:
     $ref: ./auth.yaml#/paths/~1api~1auth~1me
   /api/auth/refresh:
     $ref: ./auth.yaml#/paths/~1api~1auth~1refresh
+  /api/auth/logout:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1logout
+  /api/auth/forgot-password:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1forgot-password
+  /api/auth/reset-password:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1reset-password
 components:
   securitySchemes:
     accessCookie:

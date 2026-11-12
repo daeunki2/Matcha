@@ -16,6 +16,14 @@ CREATE TABLE email_verification_tokens (
     used_at TIMESTAMPTZ
 );
 
+CREATE TABLE password_reset_tokens (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ
+);
+
 CREATE TABLE sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
@@ -24,3 +32,4 @@ CREATE TABLE sessions (
     revoked_at TIMESTAMPTZ,
     refresh_token_hash TEXT UNIQUE
 );
+

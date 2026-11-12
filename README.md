@@ -19,3 +19,8 @@
 - Database: PostgreSQL
 - API Documentation: OpenAPI / Swagger UI
 
+5. test
+{
+  "email": "logout.tester@example.com",
+  "password": "Matcha-Test!4827"
+}

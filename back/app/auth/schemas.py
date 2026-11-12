@@ -76,3 +76,22 @@ def validate_email_format(email):
 
 
 
+def validate_password_reset(data):
+    token = data.get("token")
+    password = data.get("password")
+
+    if not isinstance(token, str) or not token:
+        raise ValueError("INVALID_RESET_TOKEN")
+
+    if not isinstance(password, str) or not password:
+        raise ValueError("PASSWORD_REQUIRED")
+
+    try:
+        validate_password(password)
+    except ValueError as error:
+        raise ValueError("PASSWORD_INVALID") from error
+
+    return {
+        "token": token,
+        "password": password,
+    }

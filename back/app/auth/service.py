@@ -8,8 +8,7 @@ import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
-from app.auth import tokens
-from app.auth.email_service import EmailDeliveryError, send_verification_email
+from app.auth import email_service, tokens
 from app.db.session import get_connection
 
 class EmailNotVerifiedError(Exception):
@@ -32,8 +31,8 @@ def register_user(username, email, password, first_name, last_name):
         )
         token = create_verification_record(conn, user_id)
     try:
-        send_verification_email(email=email, token=token)
-    except EmailDeliveryError:
+        email_service.send_verification_email(email=email, token=token)
+    except email_service.EmailDeliveryError:
         logger.exception("Verification email delivery failed")
         raise
 
@@ -56,8 +55,8 @@ def hash_password(password):
 
 def create_verification_record(conn, user_id):
     """Create and store a one-time email verification token."""
-    token = tokens.create_email_verification_token()
-    token_hash = tokens.hash_email_verification_token(token)
+    token = tokens.create_random_token()
+    token_hash = tokens.hash_token(token)
 
     expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
     conn.execute(
@@ -70,7 +69,7 @@ def create_verification_record(conn, user_id):
 
 def verify_email(token):
     """Verify a one-time email token and activate the user."""
-    token_hash = tokens.hash_email_verification_token(token)
+    token_hash = tokens.hash_token(token)
 
     with get_connection() as conn:
         result = conn.execute(
@@ -136,8 +135,8 @@ def resend_verification_email(email):
         token = create_verification_record(conn, user_id)
 
     try:
-        send_verification_email(email=email, token=token)
-    except EmailDeliveryError:
+        email_service.send_verification_email(email=email, token=token)
+    except email_service.EmailDeliveryError:
         logger.exception("Verification email resend failed")
         raise
 
@@ -307,24 +306,6 @@ def get_authenticated_user(payload):
         "is_verified": user[5],
     }
     
-def decode_refresh_token(token):
-    """Validate and decode a refresh JWT."""
-    try:
-        payload = jwt.decode(
-            token,
-            os.environ["JWT_SECRET_KEY"],
-            algorithms=["HS256"],
-            options={
-                "require": ["sub", "sid", "type", "iat", "exp", "jti"]
-            },
-        )
-    except jwt.InvalidTokenError:
-        return None
-
-    if payload.get("type") != "refresh":
-        return None
-
-    return payload
 
 def validate_refresh_session(token, payload):
     """Validate the refresh token against its database session."""
@@ -411,3 +392,115 @@ def rotate_refresh_token(token, payload):
         "session_id": session_id,
         "refresh_token": new_token,
     }
+    
+def revoke_all_sessions(user_id):
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE sessions
+            SET revoked_at = NOW()
+            WHERE user_id = %s
+                AND revoked_at IS NULL
+            """,
+            (user_id,),
+        )
+        
+def create_password_reset_record(conn, user_id):
+    token = tokens.create_random_token()
+    token_hash = tokens.hash_token(token)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+
+    conn.execute(
+        """
+        INSERT INTO password_reset_tokens (
+            user_id,
+            token_hash,
+            expires_at
+        )
+        VALUES (%s, %s, %s)
+        """,
+        (user_id, token_hash, expires_at),
+    )
+
+    return token
+
+def request_password_reset(email):
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE email = %s
+            """,
+            (email,),
+        ).fetchone()
+
+        if user is None:
+            return
+
+        user_id = user[0]
+
+        conn.execute(
+            """
+            UPDATE password_reset_tokens
+            SET expires_at = NOW()
+            WHERE user_id = %s
+              AND used_at IS NULL
+              AND expires_at > NOW()
+            """,
+            (user_id,),
+        )
+
+        token = create_password_reset_record(conn, user_id)
+    try:
+        email_service.send_password_reset_email(email=email, token=token)
+    except email_service.EmailDeliveryError:
+        logger.exception("Password reset email delivery failed")
+        raise
+    
+
+def reset_password(token, password):
+    """Consume a reset token, update a validated password, and revoke all sessions."""
+    token_hash = tokens.hash_token(token)
+    password_hash = hash_password(password)
+
+    with get_connection() as conn:
+        result = conn.execute(
+            """
+            UPDATE password_reset_tokens
+            SET used_at = NOW()
+            WHERE token_hash = %s
+              AND used_at IS NULL
+              AND expires_at > NOW()
+            RETURNING user_id
+            """,
+            (token_hash,),
+        )
+
+        row = result.fetchone()
+
+        if row is None:
+            return False
+
+        user_id = row[0]
+
+        conn.execute(
+            """
+            UPDATE users
+            SET password_hash = %s
+            WHERE id = %s
+            """,
+            (password_hash, user_id),
+        )
+
+        conn.execute(
+            """
+            UPDATE sessions
+            SET revoked_at = NOW()
+            WHERE user_id = %s
+              AND revoked_at IS NULL
+            """,
+            (user_id,),
+        )
+
+    return True

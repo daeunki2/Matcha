@@ -1,56 +1,13 @@
 from flask import Blueprint, request, jsonify
 from psycopg.errors import UniqueViolation
 
-from app.auth import schemas, service
+from app.auth import email_service, schemas, service
 
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/signup", methods=["POST"])
 def register():
-    """
-    Register a new user.
-    ---
-    tags:
-      - Authentication
-    consumes:
-      - application/json
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          required:
-            - username
-            - email
-            - password
-            - first_name
-            - last_name
-          properties:
-            username:
-              type: string
-            email:
-              type: string
-            password:
-              type: string
-              format: password
-            first_name:
-              type: string
-            last_name:
-              type: string
-    responses:
-      202:
-        description: Registration request accepted
-      400:
-        description: Invalid input
-      409:
-        description: Username already taken
-      500:
-        description: Registration processing error
-      503:
-        description: Email delivery failed
-    """
     data = request.get_json(silent=True)
 
     if not isinstance(data, dict):
@@ -86,7 +43,7 @@ def register():
             "error": "Unable to process registration."
         }), 500
 
-    except service.EmailDeliveryError:
+    except email_service.EmailDeliveryError:
         return jsonify({
             "error": "Account created, but verification email delivery failed.",
             "code": "EMAIL_DELIVERY_FAILED",
@@ -132,7 +89,7 @@ def resend_verification_route():
         return jsonify({"message": "Please check your input."}), 400
     try:
         service.resend_verification_email(email)
-    except service.EmailDeliveryError:
+    except email_service.EmailDeliveryError:
         return jsonify({
             "message": "Unable to process your request. Please try again later."
         }),500
@@ -266,5 +223,108 @@ def refresh_session():
         max_age=7 * 24 * 60 * 60,
         path="/api/auth",
     )
+
+    return response, 200
+
+@auth_bp.route("/logout", methods=["POST"])
+def logout():
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not refresh_token:
+        return jsonify({"message": "Authentication required."}), 401
+
+    payload = service.decode_refresh_token(refresh_token)
+
+    if payload is None:
+        return jsonify({"message": "Authentication required."}), 401
+    
+    session = service.validate_refresh_session(refresh_token, payload)
+
+    if session is None:
+        return jsonify({"message": "Authentication required."}), 401
+    
+    service.revoke_all_sessions(session["user_id"])
+    
+    response = jsonify({"message": "Logged out successfully."})
+    response.delete_cookie("access_token", path="/api")
+    response.delete_cookie("refresh_token", path="/api/auth")
+
+    return response, 200
+
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({"message": "Please check your input."}), 400
+
+    email = data.get("email")
+
+    try:
+        schemas.validate_email_format(email)
+    except ValueError:
+        return jsonify({"message": "Please check your input."}), 400
+
+    try:
+        service.request_password_reset(email)
+    except email_service.EmailDeliveryError:
+        return jsonify({
+            "message": "Unable to process your request. Please try again later."
+        }), 503
+
+    return jsonify({
+        "message": (
+            "If an account exists for this email, "
+            "you will receive a password reset link."
+        )
+    }), 202
+    
+    
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "code": "INVALID_REQUEST",
+            "message": "Please send a JSON object.",
+        }), 400
+
+    try:
+        validated_data = schemas.validate_password_reset(data)
+    except ValueError as error:
+        code = str(error)
+
+        messages = {
+            "INVALID_RESET_TOKEN": "Invalid password reset token.",
+            "PASSWORD_REQUIRED": "Please enter a password.",
+            "PASSWORD_INVALID": (
+                "Password must be at least 8 characters "
+                "and must not be common or easily guessed."
+            ),
+        }
+
+        return jsonify({
+            "code": code,
+            "message": messages.get(code, "Please check your input."),
+        }), 400
+
+    success = service.reset_password(
+        validated_data["token"],
+        validated_data["password"],
+    )
+
+    if not success:
+        return jsonify({
+            "code": "INVALID_RESET_TOKEN",
+            "message": "Invalid or expired password reset link.",
+        }), 400
+
+    response = jsonify({
+        "message": "Password reset successfully. Please log in again.",
+    })
+
+    response.delete_cookie("access_token", path="/api")
+    response.delete_cookie("refresh_token", path="/api/auth")
 
     return response, 200

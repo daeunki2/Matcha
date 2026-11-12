@@ -271,6 +271,179 @@ paths:
                 $ref: '#/components/schemas/Message'
               example:
                 message: Session expired. Please log in again.
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out from all devices
+      description: >
+        Validates the refresh token and its active database session,
+        revokes all sessions belonging to the user, and clears
+        access and refresh cookies in the current browser.
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          description: All sessions revoked and current browser cookies cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Logged out successfully.
+          headers:
+            Set-Cookie:
+              description: >
+                Expires access_token at /api and refresh_token at
+                /api/auth using two separate Set-Cookie headers.
+              schema:
+                type: string
+        '401':
+          description: >
+            Missing or invalid refresh token, or no matching active
+            database session. Cookies are not cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Authentication required.
+
+  /api/auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request a password reset email
+      description: >
+        For an existing account, invalidates previous unused, unexpired
+        password reset tokens and stores a new token hash with a 30-minute
+        expiry before sending the reset link by email. Unknown emails receive
+        the same 202 response without creating a token or sending email.
+        Email delivery failure returns 503; database changes remain committed,
+        so the user must request a new link. Does not change the password.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  $ref: '#/components/schemas/Email'
+            example:
+              email: user@example.com
+      responses:
+        '202':
+          description: Request processed, including an unknown email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: If an account exists for this email, you will receive a password reset link.
+        '400':
+          description: Invalid JSON object or missing, non-string, or invalid email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Please check your input.
+        '503':
+          description: Email delivery failed after the reset token was saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Unable to process your request. Please try again later.
+
+  /api/auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset the password and revoke all sessions
+      description: >
+        Validates the new password before consuming an unused, unexpired
+        password reset token. Atomically consumes the token, updates the
+        password hash, and revokes all sessions belonging to the user.
+        Clears authentication cookies in the current browser on success.
+        Password validation failures do not consume the token.
+        Does not log the user in automatically.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                  description: Original token from the password reset email.
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  description: Must pass the shared registration password validator (zxcvbn score >= 2).
+      responses:
+        '200':
+          description: Password changed, all sessions revoked, and current browser cookies cleared.
+          headers:
+            Set-Cookie:
+              description: Expires access_token at /api and refresh_token at /api/auth using two separate headers.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Password reset successfully. Please log in again.
+        '400':
+          description: Invalid request, invalid password, or missing, expired, used, or unknown reset token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - code
+                  - message
+                properties:
+                  code:
+                    type: string
+                    enum: [INVALID_REQUEST, INVALID_RESET_TOKEN, PASSWORD_REQUIRED, PASSWORD_INVALID]
+                  message:
+                    type: string
+              examples:
+                invalidRequest:
+                  value:
+                    code: INVALID_REQUEST
+                    message: Please send a JSON object.
+                missingToken:
+                  value:
+                    code: INVALID_RESET_TOKEN
+                    message: Invalid password reset token.
+                rejectedToken:
+                  value:
+                    code: INVALID_RESET_TOKEN
+                    message: Invalid or expired password reset link.
+                missingPassword:
+                  value:
+                    code: PASSWORD_REQUIRED
+                    message: Please enter a password.
+                invalidPassword:
+                  value:
+                    code: PASSWORD_INVALID
+                    message: Password must be at least 8 characters and must not be common or easily guessed.
+
 components:
   schemas:
     Email:
