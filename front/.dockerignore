@@ -4,3 +4,5 @@ dist/
 .env
 .env.*
 .git/
+Dockerfile
+npm-debug.log

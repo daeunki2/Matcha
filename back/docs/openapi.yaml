@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: Matcha API
+  version: 1.0.0
+  description: Matcha backend API. Authentication operations and shared schemas live in auth.yaml.
+servers:
+- url: /
+  description: Same origin as the documentation
+tags:
+- name: Authentication
+  description: Registration, email verification and cookie-based sessions.
+- name: Health
+paths:
+  /health:
+    get:
+      tags:
+      - Health
+      summary: Check server health
+      responses:
+        '200':
+          description: Flask server is running (does not check the database or email service).
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ok
+              example:
+                status: ok
+  /api/auth/signup:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1signup
+  /api/auth/verify-email:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1verify-email
+  /api/auth/resend-verification:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1resend-verification
+  /api/auth/login:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1login
+  /api/auth/me:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1me
+  /api/auth/refresh:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1refresh
+  /api/auth/logout:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1logout
+  /api/auth/forgot-password:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1forgot-password
+  /api/auth/reset-password:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1reset-password
+components:
+  securitySchemes:
+    accessCookie:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: HS256 access JWT; 15 minutes; HttpOnly; SameSite=Lax; Path=/api; Secure disabled. Issued
+        by login or refresh.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: HS256 refresh JWT; seven days; HttpOnly; SameSite=Lax; Path=/api/auth; Secure disabled.
+        Checked against the active session and rotated on refresh.

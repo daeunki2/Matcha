@@ -1,0 +1,572 @@
+paths:
+  /api/auth/signup:
+    post:
+      tags:
+      - Authentication
+      summary: Register a new user
+      description: Creates an unverified account and sends a one-time verification token valid for one
+        hour. An existing email receives the same 202 message to avoid disclosing account existence. Additional
+        JSON fields are ignored; strings are not trimmed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '202':
+          description: Request accepted, including an already registered email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Request received. Please check your email.
+        '400':
+          description: Invalid JSON object or registration validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                json:
+                  value:
+                    error: Invalid JSON object
+                missing:
+                  value:
+                    error: 'Missing required field: username'
+                type:
+                  value:
+                    error: username must be a string
+                empty:
+                  value:
+                    error: username cannot be empty
+                length:
+                  value:
+                    error: username is too long
+                passwordLength:
+                  value:
+                    error: Password must be at least 8 characters
+                passwordStrength:
+                  value:
+                    error: Password is too weak
+                email:
+                  value:
+                    error: Invalid email format
+        '409':
+          description: Username uniqueness conflict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Username is already taken.
+        '500':
+          description: Other database uniqueness constraint violation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Unable to process registration.
+        '503':
+          description: Account was created, but sending the verification email failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDeliveryError'
+              example:
+                error: Account created, but verification email delivery failed.
+                code: EMAIL_DELIVERY_FAILED
+  /api/auth/verify-email:
+    post:
+      tags:
+      - Authentication
+      summary: Verify an email address
+      description: Consumes a one-time token and marks the user as verified. Tokens expire after one hour;
+        used or invalidated tokens are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '200':
+          description: Email verified.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Your email has been verified successfully.
+        '400':
+          description: Invalid JSON object, missing/non-string/empty token, or invalid, expired or previously
+            used token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                request:
+                  value:
+                    message: Invalid verification request.
+                token:
+                  value:
+                    message: Invalid or expired verification link.
+  /api/auth/resend-verification:
+    post:
+      tags:
+      - Authentication
+      summary: Resend the verification email
+      description: For an unverified account, invalidates unused tokens and sends a new token valid for
+        one hour. Unknown emails and already verified accounts receive the same 202 response without sending
+        email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendVerificationRequest'
+      responses:
+        '202':
+          description: Request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Request received. Please check your email.
+        '400':
+          description: Invalid JSON object or missing/invalid email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Please check your input.
+        '500':
+          description: Verification email delivery failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Unable to process your request. Please try again later.
+  /api/auth/login:
+    post:
+      tags:
+      - Authentication
+      summary: Log in
+      description: Checks credentials and email verification, creates a seven-day server-side session,
+        and sets access and refresh JWT cookies signed with HS256. In Swagger UI, log in using Try it
+        out, then call /api/auth/me from the same origin; the browser manages HttpOnly cookies. Swagger
+        UI cannot manually set the Cookie header through Authorize.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in; authentication cookies set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Login successful.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/AuthenticationCookies'
+        '400':
+          description: Invalid JSON object or invalid email/password input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                json:
+                  value:
+                    message: Invalid request.
+                input:
+                  value:
+                    message: Please check your input.
+        '401':
+          description: Email not found or password does not match.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Invalid email or password.
+        '403':
+          description: Credentials match, but email is not verified.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Please verify your email.
+  /api/auth/me:
+    get:
+      tags:
+      - Authentication
+      summary: Get the authenticated user
+      description: Requires a valid access JWT and a matching server-side session that is neither revoked
+        nor expired.
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 1
+                username: alex
+                first_name: Alex
+                last_name: Martin
+                email: alex@example.com
+                is_verified: true
+        '401':
+          description: Missing or invalid access JWT, invalid claims, or no matching active user/session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Authentication required.
+  /api/auth/refresh:
+    post:
+      tags:
+      - Authentication
+      summary: Refresh the authentication cookies
+      description: Requires a valid refresh JWT matching the stored token hash and an active session.
+        Atomically rotates the refresh token and issues a new access token. Reusing the previous refresh
+        token fails. Cookie/JWT lifetimes restart, but the original server-side session expiry is not
+        extended. No request body is required.
+      security:
+      - refreshCookie: []
+      responses:
+        '200':
+          description: Tokens rotated; authentication cookies replaced.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Session refreshed successfully.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/AuthenticationCookies'
+        '401':
+          description: Missing/invalid refresh JWT or no matching active session/token hash.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Session expired. Please log in again.
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out from all devices
+      description: >
+        Validates the refresh token and its active database session,
+        revokes all sessions belonging to the user, and clears
+        access and refresh cookies in the current browser.
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          description: All sessions revoked and current browser cookies cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Logged out successfully.
+          headers:
+            Set-Cookie:
+              description: >
+                Expires access_token at /api and refresh_token at
+                /api/auth using two separate Set-Cookie headers.
+              schema:
+                type: string
+        '401':
+          description: >
+            Missing or invalid refresh token, or no matching active
+            database session. Cookies are not cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Authentication required.
+
+  /api/auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request a password reset email
+      description: >
+        For an existing account, invalidates previous unused, unexpired
+        password reset tokens and stores a new token hash with a 30-minute
+        expiry before sending the reset link by email. Unknown emails receive
+        the same 202 response without creating a token or sending email.
+        Email delivery failure returns 503; database changes remain committed,
+        so the user must request a new link. Does not change the password.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  $ref: '#/components/schemas/Email'
+            example:
+              email: user@example.com
+      responses:
+        '202':
+          description: Request processed, including an unknown email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: If an account exists for this email, you will receive a password reset link.
+        '400':
+          description: Invalid JSON object or missing, non-string, or invalid email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Please check your input.
+        '503':
+          description: Email delivery failed after the reset token was saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Unable to process your request. Please try again later.
+
+  /api/auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset the password and revoke all sessions
+      description: >
+        Validates the new password before consuming an unused, unexpired
+        password reset token. Atomically consumes the token, updates the
+        password hash, and revokes all sessions belonging to the user.
+        Clears authentication cookies in the current browser on success.
+        Password validation failures do not consume the token.
+        Does not log the user in automatically.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                  description: Original token from the password reset email.
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  description: Must pass the shared registration password validator (zxcvbn score >= 2).
+      responses:
+        '200':
+          description: Password changed, all sessions revoked, and current browser cookies cleared.
+          headers:
+            Set-Cookie:
+              description: Expires access_token at /api and refresh_token at /api/auth using two separate headers.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Password reset successfully. Please log in again.
+        '400':
+          description: Invalid request, invalid password, or missing, expired, used, or unknown reset token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - code
+                  - message
+                properties:
+                  code:
+                    type: string
+                    enum: [INVALID_REQUEST, INVALID_RESET_TOKEN, PASSWORD_REQUIRED, PASSWORD_INVALID]
+                  message:
+                    type: string
+              examples:
+                invalidRequest:
+                  value:
+                    code: INVALID_REQUEST
+                    message: Please send a JSON object.
+                missingToken:
+                  value:
+                    code: INVALID_RESET_TOKEN
+                    message: Invalid password reset token.
+                rejectedToken:
+                  value:
+                    code: INVALID_RESET_TOKEN
+                    message: Invalid or expired password reset link.
+                missingPassword:
+                  value:
+                    code: PASSWORD_REQUIRED
+                    message: Please enter a password.
+                invalidPassword:
+                  value:
+                    code: PASSWORD_INVALID
+                    message: Password must be at least 8 characters and must not be common or easily guessed.
+
+components:
+  schemas:
+    Email:
+      type: string
+      maxLength: 255
+      pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
+      description: Must match the backend email pattern exactly; no trimming or case normalization.
+    SignupRequest:
+      type: object
+      required:
+      - username
+      - email
+      - password
+      - first_name
+      - last_name
+      properties:
+        username:
+          type: string
+          minLength: 1
+          pattern: \S
+          maxLength: 50
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          type: string
+          format: password
+          minLength: 8
+          pattern: \S
+          description: Must contain a non-whitespace character and achieve zxcvbn score >= 2. No explicit
+            maximum length in the request validator.
+        first_name:
+          type: string
+          minLength: 1
+          pattern: \S
+          maxLength: 100
+        last_name:
+          type: string
+          minLength: 1
+          pattern: \S
+          maxLength: 100
+    VerifyEmailRequest:
+      type: object
+      required:
+      - token
+      properties:
+        token:
+          type: string
+          minLength: 1
+          description: Token from the verification email. No format or length restriction beyond nonempty
+            is enforced before lookup.
+    ResendVerificationRequest:
+      type: object
+      required:
+      - email
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+    LoginRequest:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          type: string
+          format: password
+          minLength: 1
+          description: Any nonempty string; registration strength rules are not applied at login.
+    Message:
+      type: object
+      required:
+      - message
+      properties:
+        message:
+          type: string
+    Error:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: string
+    EmailDeliveryError:
+      type: object
+      required:
+      - error
+      - code
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum:
+          - EMAIL_DELIVERY_FAILED
+    User:
+      type: object
+      required:
+      - id
+      - username
+      - first_name
+      - last_name
+      - email
+      - is_verified
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        is_verified:
+          type: boolean
+  headers:
+    AuthenticationCookies:
+      description: 'Two separate Set-Cookie headers: access_token=<JWT>; Max-Age=900; HttpOnly; Path=/api;
+        SameSite=Lax and refresh_token=<JWT>; Max-Age=604800; HttpOnly; Path=/api/auth; SameSite=Lax.
+        Both also include Expires. Secure is currently disabled. Tokens are not returned in JSON.'
+      schema:
+        type: string

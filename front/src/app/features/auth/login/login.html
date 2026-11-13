@@ -1,0 +1,14 @@
+<app-auth-layout
+  [title]="'Welcome Back'"
+  [subtitle]="'Please login to your account.'"
+>
+	<form [formGroup]="form" (ngSubmit)="onSubmit()">
+		<label class="auth-label" for="email">Email</label>
+		<input class="auth-input" type="email" required formControlName="email" autocomplete="email" />
+		<label class="auth-label" for="password">Password</label>
+		<input class="auth-input" type="password" required formControlName="password" autocomplete="current-password" />
+		<button type="submit" class="auth-button">Log in</button>
+	</form>
+	<a class="auth-link" href="/forgot-password">Forgot Password?</a>
+	<span class="auth-link">New to matcha? <a href="/signup">Create account</a></span>
+</app-auth-layout>
