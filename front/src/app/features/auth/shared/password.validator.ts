@@ -1,20 +1,5 @@
 import { SchemaPath, validate } from "@angular/forms/signals";
 
-// export function phoneNumber(path: SchemaPath<string>, options?: {message?: string}) {
-//   validate(path, ({value}) => {
-//     const phoneRegex = /^\d{3}-\d{3}-\d{4}$/;
-
-//     if (!phoneRegex.test(value())) {
-//       return {
-//         kind: 'phoneNumber',
-//         message: options?.message || 'Phone must be in format: 555-123-4567',
-//       };
-//     }
-
-//     return null;
-//   });
-// }
-
 export function password(path: SchemaPath<string>) {
 	validate(path, ({ value }): { kind: 'password', message: string }[] | null => {	
 		const password = value();
