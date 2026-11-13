@@ -1,24 +1,30 @@
-import { Component } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { AuthLayout } from '../auth-layout/auth-layout';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { email, form, FormField, required } from '@angular/forms/signals';
 
 @Component({
-  imports: [AuthLayout, ReactiveFormsModule],
+  imports: [AuthLayout, FormField],
   selector: 'app-forgot-password',
   styleUrl: './forgot-password.scss',
   templateUrl: './forgot-password.html',
 })
 export class ForgotPassword {
-  protected form = new FormGroup({
-    'email': new FormControl('', [Validators.required, Validators.email]),
+  private emailModel = signal<{ email: string }>({ email: '' });
+
+  protected form = form(this.emailModel, (schemaPath) => {
+    required(schemaPath.email, { message: 'Email is required.' });
+    email(schemaPath.email, { message: 'Email format is invalid.' });
   });
 
-  protected onSubmit() {
-    this.form.markAllAsTouched();
-    if (this.form.invalid) {
+  protected emailErrors = computed(() => this.form.email().touched() ? this.form.email().errors() : []);
+
+  protected onSubmit(event: Event) {
+    event.preventDefault();
+
+    if (this.form().invalid()) {
       console.log('Form is invalid');
       return;
     }
-    console.log('Forgot password for email:', this.form.value.email);
+    console.log('Forgot password for email:', this.form.email().value());
   }
 }

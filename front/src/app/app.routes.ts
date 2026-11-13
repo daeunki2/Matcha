@@ -17,9 +17,19 @@ export const routes: Routes = [
       import("./features/auth/signup/signup").then((m) => m.Signup),
   },
   {
+    path: 'verify-email',
+    loadComponent: () =>
+      import('./features/auth/email-check/email-check').then(m => m.EmailCheck)
+  },
+  {
     path: "forgot-password",
     loadComponent: () =>
       import("./features/auth/forgot-password/forgot-password").then((m) => m.ForgotPassword),
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./features/auth/new-password/new-password').then(m => m.NewPassword)
   },
   // {
   //   path: "dashboard",
