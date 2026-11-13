@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, tap, map } from 'rxjs';
+import { HttpClient, HttpResponse } from '@angular/common/http';
+import { Observable, tap, map, catchError, throwError } from 'rxjs';
+import { NotificationService } from '../../shared/services/notification.service';
 
 interface User {
   id: number;
@@ -8,11 +9,8 @@ interface User {
   email: string;
   firstname: string;
   lastname: string;
-}
-
-interface AuthResponse {
-  accessToken: string;
-  user: User;
+  isVerified: boolean;
+  profileCompleted: boolean;
 }
 
 @Injectable({
@@ -25,40 +23,64 @@ export class AuthService {
   private readonly API_URL = '/api/auth';
 
   private _user = signal<User | null>(null);
-  private _accessToken = signal<string | null>(null);
+  private _isAuthenticated = signal<boolean | null>(null);
 
   public readonly user = this._user.asReadonly();
-  public readonly accessToken = this._accessToken.asReadonly();
+  public readonly isAuthenticated = this._isAuthenticated.asReadonly();
 
-  public readonly isAuthenticated = computed(
-    () => this._user() !== null && this._accessToken() !== null
-  );
+  public userIsNotAuthenticated() {
+    this._isAuthenticated.set(false);
+  }
 
-  public login(email: string, password: string): Observable<User> {
+  public login(email: string, password: string): Observable<HttpResponse<void>> {
 
-    return this.http.post<AuthResponse>(
+    return this.http.post<void>(
       `${this.API_URL}/login`,
-      { email, password }
+      { email, password },
+      { observe: 'response' }
     ).pipe(
-      tap(response => {
-        this._accessToken.set(response.accessToken);
-        this._user.set(response.user);
-      }),
-      map(response => response.user)
+      tap((response) => response.status === 202 ? this._isAuthenticated.set(true) : this._isAuthenticated.set(false))
+    )
+  }
+
+  public signup(firstname: string, lastname: string, username: string, email: string, password: string): Observable<HttpResponse<void>> {
+    return this.http.post<void>(
+        `${this.API_URL}/signup`,
+        { first_name: firstname, last_name: lastname, username, email, password },
+        { observe: 'response' }
+      );
+  }
+
+  public resendVerificationEmail(email: string): Observable<HttpResponse<void>> {
+    return this.http.post<void>(
+     `${this.API_URL}/resend-verification`,
+     { email },
+     { observe: 'response' }
+    )
+  }
+
+  public verifyEmail(token: string): Observable<HttpResponse<void>> {
+    return this.http.post<void>(
+     `${this.API_URL}/verify-email`,
+     { token },
+     { observe: 'response' }
+    )
+  }
+
+  public forgotPassword(email: string): Observable<HttpResponse<void>> {
+
+    return this.http.post<void>(
+      `${this.API_URL}/forgot-password`,
+      { email },
+      { observe: 'response' }
     );
   }
 
-  public signup(firstname: string, lastname: string, username: string, email: string, password: string): Observable<User> {
-
-	return this.http.post<AuthResponse>(
-      `${this.API_URL}/signup`,
-      { first_name: firstname, last_name: lastname, username, email, password }
-    ).pipe(
-      tap(response => {
-        this._accessToken.set(response.accessToken);
-        this._user.set(response.user);
-      }),
-      map(response => response.user)
+  public resetPassword(token: string, password: string): Observable<HttpResponse<void>> {
+    return this.http.post<void>(
+      `${this.API_URL}/reset-password`,
+      { token, new_password: password },
+      { observe: 'response' }
     );
   }
 
@@ -79,6 +101,6 @@ export class AuthService {
 
   private clearSession(): void {
     this._user.set(null);
-    this._accessToken.set(null);
+    this._isAuthenticated.set(null);
   }
 }

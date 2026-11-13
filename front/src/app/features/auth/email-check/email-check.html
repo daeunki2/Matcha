@@ -1,0 +1,36 @@
+<app-auth-layout [title]="'Verifying your email...'">
+
+	@switch (status()) {
+		@case('pending') {
+			<p>Please wait...</p>
+		}
+	
+		@case('success') {
+			<p>Your email was successfully verified.<br>You are being redirected to your profile...</p>
+		}
+	
+		@case('error') {
+			<p>There was an error verifying your email.<br>You can try receiving a new link</p>
+			<form (submit)="resendEmail($event)">
+				<label class="auth-label" for="email">Email</label>
+				<input class="auth-input" [class.invalid]="emailErrors().length > 0" type="email" [formField]="form.email"
+					autocomplete="email" />
+				@for (error of emailErrors(); track error) {
+				<p class="form-error">{{ error.message }}</p>
+				}
+				<button class="matcha-button" type="submit">Send Verification Email</button>
+			</form>
+			<a class="auth-link text-ct" href="/login">Back to Login</a>
+		}
+
+		@case('resent') {
+			<p>Email was sent! PLease click on your new link</p>
+			<a class="auth-link text-ct" href="/login">Back to Login</a>
+		}
+
+		@case('errorMail') {
+			<p>There was an error sending you an email...<br>Please contact our services if you think there is a problem</p>
+			<a class="auth-link text-ct" href="/login">Back to Login</a>
+		}
+	}
+</app-auth-layout>

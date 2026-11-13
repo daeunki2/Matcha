@@ -2,13 +2,30 @@
   [title]="'Welcome Back'"
   [subtitle]="'Please login to your account.'"
 >
-	<form [formGroup]="form" (ngSubmit)="onSubmit()">
+	<form (submit)="onSubmit($event)">
 		<label class="auth-label" for="email">Email</label>
-		<input class="auth-input" type="email" required formControlName="email" autocomplete="email" />
+		<input class="auth-input" [class.invalid]="emailErrors().length > 0" type="email" [formField]="form.email" autocomplete="email" />
+		@for (error of emailErrors(); track error) {
+			<p class="form-error">{{ error.message }}</p>
+		}
+
 		<label class="auth-label" for="password">Password</label>
-		<input class="auth-input" type="password" required formControlName="password" autocomplete="current-password" />
-		<button type="submit" class="auth-button">Log in</button>
+		<input class="auth-input" [class.invalid]="passwordErrors().length > 0" type="password" [formField]="form.password" autocomplete="current-password" />
+		@for (error of passwordErrors(); track error) {
+			<p class="form-error">{{ error.message }}</p>
+		}
+
+		<button type="submit" class="matcha-button">Log in</button>
 	</form>
 	<a class="auth-link" href="/forgot-password">Forgot Password?</a>
-	<span class="auth-link">New to matcha? <a href="/signup">Create account</a></span>
+	<hr class="login-separator"><span class="login-separator--text">or</span><hr class="login-separator" style="float: right;">
+	<div class="flex gap-5 mt-4">
+		<button class="matcha-button light" (click)="loginWithGoogle()">
+			Continue with Google
+		</button>
+		<button class="matcha-button light" (click)="loginWith42()">
+			Continue with 42
+		</button>
+	</div>
+	<span class="auth-link text-sm text-ct">New to matcha? <a href="/signup">Create account</a></span>
 </app-auth-layout>

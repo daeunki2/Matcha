@@ -1,34 +1,62 @@
-<app-auth-layout
-  [title]="'SignUp'"
-  [subtitle]="'Welcome! Please sign up for your account.'"
->
 
-<form [formGroup]="form" (ngSubmit)="onSubmit()">
-<label class="auth-label" for="firstName">First Name</label>
-<input class="auth-input" type="text" formControlName="firstname"  autocomplete="given-name" />
-<label class="auth-label" for="lastName">Last Name</label>
-<input class="auth-input" type="text" formControlName="lastname"  autocomplete="family-name" />
-<label class="auth-label" for="username">Username</label>
-  <input
-  class="auth-input"
-	type="text"
-	formControlName="username"
-  autocomplete="username"
-  />
-<label class="auth-label" for="email">Email</label>
-  <input
-  class="auth-input"
-	type="email"
-  autocomplete="email"
-	formControlName="email"
-  />
-<label class="auth-label" for="password">Password</label>
-  <input
-  class="auth-input"
-	type="password"
-	formControlName="password"
-  />
-  <button class="auth-button" type="submit">Register</button>
-</form>
-  <span class="auth-link">Already have an account? <a href="/login">Log in</a></span>
+@if (signupSuccess()) {
+  <app-auth-layout [title]="'Registration complete'">
+    <p>Please check your e-mails to verify your account!</p>
+  </app-auth-layout>
+} @else {
+  <app-auth-layout [title]="'SignUp'" [subtitle]="'Welcome! Please sign up for your account.'">
+
+  <form (submit)="onSubmit($event)">
+    <div class="flex gap-5">
+      <div>
+        <label class="auth-label" for="firstName">First Name</label>
+        <input class="auth-input" [class.invalid]="firstnameErrors().length > 0" type="text" [formField]="form.firstname" autocomplete="given-name" />
+        @for (error of firstnameErrors(); track error) {
+          <p class="form-error">{{ error.message }}</p>
+        }
+      </div>
+      <div>
+        <label class="auth-label" for="lastName">Last Name</label>
+        <input class="auth-input" [class.invalid]="lastnameErrors().length > 0" type="text" [formField]="form.lastname" autocomplete="family-name" />
+        @for (error of lastnameErrors(); track error) {
+          <p class="form-error">{{ error.message }}</p>
+        }
+      </div>
+    </div>
+    <label class="auth-label" for="username">Username</label>
+      <input
+      class="auth-input"
+      [class.invalid]="usernameErrors().length > 0"
+      type="text"
+      [formField]="form.username"
+      autocomplete="username"
+      />
+      @for (error of usernameErrors(); track error) {
+        <p class="form-error">{{ error.message }}</p>
+      }
+    <label class="auth-label" for="email">Email</label>
+      <input
+      class="auth-input"
+      [class.invalid]="emailErrors().length > 0"
+      type="email"
+      autocomplete="email"
+      [formField]="form.email"
+      />
+      @for (error of emailErrors(); track error) {
+        <p class="form-error">{{ error.message }}</p>
+      }
+    <label class="auth-label" for="password">Password</label>
+      <input
+      class="auth-input"
+      [class.invalid]="passwordErrors().length > 0"
+      type="password"
+      [formField]="form.password"
+      />
+      @for (error of passwordErrors(); track error) {
+        <p class="form-error">{{ error.message }}</p>
+      }
+    <button class="matcha-button" type="submit">Register</button>
+  </form>
+  <span class="auth-link text-sm text-ct">Already have an account? <a href="/login">Log in</a></span>
 </app-auth-layout>
+}

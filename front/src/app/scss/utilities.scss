@@ -1,0 +1,62 @@
+@use './variables.scss' as *;
+
+.flex {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.text-sm {
+	font: var(--mat-sys-body-small);
+}
+
+.text-ct {
+	text-align: center;
+}
+
+.form-error {
+	color: var(--mat-sys-error);
+	font: var(--mat-sys-body-small);
+	margin-top: 0.2rem;
+	margin-bottom: 0.2rem;
+}
+
+@for $i from 1 through 20 {
+	.gap-#{$i} {
+		gap: #{$i * $base-space}px;
+	}
+
+	.p-#{$i} {
+		padding: #{$i * $base-space}px;
+	}
+
+	.ph-#{$i} {
+		padding-right: #{$i * $base-space}px;
+		padding-left: #{$i * $base-space}px;
+	}
+
+	.pv-#{$i} {
+		padding-top: #{$i * $base-space}px;
+		padding-bottom: #{$i * $base-space}px;
+	}
+
+	.m-#{$i} {
+		margin: #{$i * $base-space}px;
+	}
+
+	.mt-#{$i} {
+		margin-top: #{$i * $base-space}px;
+	}
+
+	.mb-#{$i} {
+		margin-bottom: #{$i * $base-space}px;
+	}
+
+	.mr-#{$i} {
+		margin-right: #{$i * $base-space}px;
+	}
+
+	.ml-#{$i} {
+		margin-left: #{$i * $base-space}px;
+	}
+}
