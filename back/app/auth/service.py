@@ -154,6 +154,9 @@ def authenticate_user(username, password):
     if user is None:
         return None
 
+    if user[2] is None:
+        return None
+
     if not verify_password(password, user[2]):
         return None
 
@@ -431,6 +434,7 @@ def request_password_reset(email):
             SELECT id
             FROM users
             WHERE email = %s
+              AND auth_provider = 'local'
             """,
             (email,),
         ).fetchone()
@@ -459,25 +463,26 @@ def request_password_reset(email):
         raise
     
 
+
 def reset_password(token, password):
-    """Consume a reset token, update a validated password, and revoke all sessions."""
+    """Reset a local user's password and revoke all sessions."""
     token_hash = tokens.hash_token(token)
     password_hash = hash_password(password)
 
     with get_connection() as conn:
-        result = conn.execute(
+        row = conn.execute(
             """
-            UPDATE password_reset_tokens
-            SET used_at = NOW()
-            WHERE token_hash = %s
-              AND used_at IS NULL
-              AND expires_at > NOW()
-            RETURNING user_id
+            SELECT t.user_id
+            FROM password_reset_tokens AS t
+            JOIN users AS u ON u.id = t.user_id
+            WHERE t.token_hash = %s
+              AND t.used_at IS NULL
+              AND t.expires_at > NOW()
+              AND u.auth_provider = 'local'
+            FOR UPDATE OF t, u
             """,
             (token_hash,),
-        )
-
-        row = result.fetchone()
+        ).fetchone()
 
         if row is None:
             return False
@@ -495,6 +500,15 @@ def reset_password(token, password):
 
         conn.execute(
             """
+            UPDATE password_reset_tokens
+            SET used_at = NOW()
+            WHERE token_hash = %s
+            """,
+            (token_hash,),
+        )
+
+        conn.execute(
+            """
             UPDATE sessions
             SET revoked_at = NOW()
             WHERE user_id = %s
@@ -504,8 +518,6 @@ def reset_password(token, password):
         )
 
     return True
-
-
 
 def find_oauth_user(provider, provider_user_id):
     with get_connection() as conn:
