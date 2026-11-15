@@ -14,9 +14,17 @@ from app.auth.ft_router import ft_bp
 app = Flask(__name__)
 
 ALLOWED_ORIGINS = {
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
+    origin.strip()
+    for origin in os.environ.get("ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
 }
+if os.environ.get("APP_ENV", "production") == "development":
+    ALLOWED_ORIGINS.update({
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:5001",
+        "http://127.0.0.1:5001",
+    })
 
 @app.before_request
 def validate_origin():

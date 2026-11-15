@@ -26,6 +26,8 @@ services:
     ports:
       - "127.0.0.1:5001:5000"
     environment:
+      APP_ENV: ${APP_ENV:-development}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DB_HOST: db
       DB_PORT: "5432"
       POSTGRES_DB: ${POSTGRES_DB:?Copy .env.example to .env first}

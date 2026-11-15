@@ -4,9 +4,9 @@ paths:
       tags:
       - Authentication
       summary: Register a new user
-      description: Creates an unverified account and sends a one-time verification token valid for one
-        hour. An existing email receives the same 202 message to avoid disclosing account existence. Additional
-        JSON fields are ignored; strings are not trimmed.
+      description: |-
+        Creates an unverified account and sends a one-time verification token valid for one hour. An existing email receives the same 202 message to avoid disclosing account existence. Additional JSON fields are ignored; strings are not trimmed.
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       requestBody:
         required: true
         content:
@@ -78,13 +78,17 @@ paths:
               example:
                 error: Account created, but verification email delivery failed.
                 code: EMAIL_DELIVERY_FAILED
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+      security: []
   /api/auth/verify-email:
     post:
       tags:
       - Authentication
       summary: Verify an email address
-      description: Consumes a one-time token and marks the user as verified. Tokens expire after one hour;
-        used or invalidated tokens are rejected.
+      description: |-
+        Consumes a one-time token and marks the user as verified. Tokens expire after one hour; used or invalidated tokens are rejected.
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       requestBody:
         required: true
         content:
@@ -114,14 +118,17 @@ paths:
                 token:
                   value:
                     message: Invalid or expired verification link.
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+      security: []
   /api/auth/resend-verification:
     post:
       tags:
       - Authentication
       summary: Resend the verification email
-      description: For an unverified account, invalidates unused tokens and sends a new token valid for
-        one hour. Unknown emails and already verified accounts receive the same 202 response without sending
-        email.
+      description: |-
+        For an unverified account, invalidates unused tokens and sends a new token valid for one hour. Unknown emails and already verified accounts receive the same 202 response without sending email.
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       requestBody:
         required: true
         content:
@@ -153,15 +160,18 @@ paths:
                 $ref: '#/components/schemas/Message'
               example:
                 message: Unable to process your request. Please try again later.
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+      security: []
   /api/auth/login:
     post:
       tags:
       - Authentication
       summary: Log in
-      description: Checks username and password credentials and email verification, creates a seven-day server-side session,
-        and sets access and refresh JWT cookies signed with HS256. In Swagger UI, log in using Try it
-        out, then call /api/auth/me from the same origin; the browser manages HttpOnly cookies. Swagger
-        UI cannot manually set the Cookie header through Authorize.
+      description: |-
+        Checks username and password credentials and email verification, creates a seven-day server-side session, and sets access and refresh JWT cookies signed with HS256. In Swagger UI, log in using Try it out, then call /api/auth/me from the same origin; the browser manages HttpOnly cookies. Swagger UI cannot manually set the Cookie header through Authorize.
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
+        Accounts without a password hash (social accounts) receive the same generic 401 response; no account conversion occurs.
       requestBody:
         required: true
         content:
@@ -205,13 +215,20 @@ paths:
               example:
                 message: Invalid username or password.
         '403':
-          description: Credentials match, but email is not verified.
+          description: Credentials match, but email is not verified. Also returned by global Origin validation
+            for missing/unlisted Origin.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
-              example:
-                message: Please verify your email.
+              examples:
+                emailNotVerified:
+                  value:
+                    message: Please verify your email.
+                forbiddenOrigin:
+                  value:
+                    message: Forbidden origin.
+      security: []
   /api/auth/me:
     get:
       tags:
@@ -248,10 +265,9 @@ paths:
       tags:
       - Authentication
       summary: Refresh the authentication cookies
-      description: Requires a valid refresh JWT matching the stored token hash and an active session.
-        Atomically rotates the refresh token and issues a new access token. Reusing the previous refresh
-        token fails. Cookie/JWT lifetimes restart, but the original server-side session expiry is not
-        extended. No request body is required.
+      description: |-
+        Requires a valid refresh JWT matching the stored token hash and an active session. Atomically rotates the refresh token and issues a new access token. Reusing the previous refresh token fails. Cookie/JWT lifetimes restart, but the original server-side session expiry is not extended. No request body is required.
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       security:
       - refreshCookie: []
       responses:
@@ -274,17 +290,19 @@ paths:
                 $ref: '#/components/schemas/Message'
               example:
                 message: Session expired. Please log in again.
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
   /api/auth/logout:
     post:
       tags:
-        - Authentication
+      - Authentication
       summary: Log out from all devices
-      description: >
-        Validates the refresh token and its active database session,
-        revokes all sessions belonging to the user, and clears
-        access and refresh cookies in the current browser.
+      description: |-
+        Validates the refresh token and its active database session, revokes all sessions belonging to the user, and clears access and refresh cookies in the current browser.
+
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       security:
-        - refreshCookie: []
+      - refreshCookie: []
       responses:
         '200':
           description: All sessions revoked and current browser cookies cleared.
@@ -296,34 +314,30 @@ paths:
                 message: Logged out successfully.
           headers:
             Set-Cookie:
-              description: >
-                Expires access_token at /api and refresh_token at
-                /api/auth using two separate Set-Cookie headers.
+              description: |
+                Expires access_token at /api and refresh_token at /api/auth using two separate Set-Cookie headers.
               schema:
                 type: string
         '401':
-          description: >
-            Missing or invalid refresh token, or no matching active
-            database session. Cookies are not cleared.
+          description: |
+            Missing or invalid refresh token, or no matching active database session. Cookies are not cleared.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
               example:
                 message: Authentication required.
-
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
   /api/auth/forgot-password:
     post:
       tags:
-        - Authentication
+      - Authentication
       summary: Request a password reset email
-      description: >
-        For an existing account, invalidates previous unused, unexpired
-        password reset tokens and stores a new token hash with a 30-minute
-        expiry before sending the reset link by email. Unknown emails receive
-        the same 202 response without creating a token or sending email.
-        Email delivery failure returns 503; database changes remain committed,
-        so the user must request a new link. Does not change the password.
+      description: |-
+        For an existing local account, invalidates previous unused, unexpired password reset tokens and stores a new token hash with a 30-minute expiry before sending the reset link by email. Unknown emails and social accounts receive the same 202 response without creating a token or sending email. Email delivery failure returns 503; database changes remain committed, so the user must request a new link. Does not change the password.
+
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       security: []
       requestBody:
         required: true
@@ -332,7 +346,7 @@ paths:
             schema:
               type: object
               required:
-                - email
+              - email
               properties:
                 email:
                   $ref: '#/components/schemas/Email'
@@ -363,19 +377,18 @@ paths:
                 $ref: '#/components/schemas/Message'
               example:
                 message: Unable to process your request. Please try again later.
-
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
   /api/auth/reset-password:
     post:
       tags:
-        - Authentication
+      - Authentication
       summary: Reset the password and revoke all sessions
-      description: >
-        Validates the new password before consuming an unused, unexpired
-        password reset token. Atomically consumes the token, updates the
-        password hash, and revokes all sessions belonging to the user.
-        Clears authentication cookies in the current browser on success.
-        Password validation failures do not consume the token.
-        Does not log the user in automatically.
+      description: |-
+        Validates the new password before consuming an unused, unexpired password reset token. Atomically consumes the token, updates the password hash, and revokes all sessions belonging to the user. Clears authentication cookies in the current browser on success. Password validation failures do not consume the token. Does not log the user in automatically.
+
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
+        Only local-provider users can reset a password. A token not associated with a local account is rejected as invalid.
       security: []
       requestBody:
         required: true
@@ -384,8 +397,8 @@ paths:
             schema:
               type: object
               required:
-                - token
-                - password
+              - token
+              - password
               properties:
                 token:
                   type: string
@@ -401,7 +414,8 @@ paths:
           description: Password changed, all sessions revoked, and current browser cookies cleared.
           headers:
             Set-Cookie:
-              description: Expires access_token at /api and refresh_token at /api/auth using two separate headers.
+              description: Expires access_token at /api and refresh_token at /api/auth using two separate
+                headers.
               schema:
                 type: string
           content:
@@ -411,18 +425,23 @@ paths:
               example:
                 message: Password reset successfully. Please log in again.
         '400':
-          description: Invalid request, invalid password, or missing, expired, used, or unknown reset token.
+          description: Invalid request, invalid password, or missing, expired, used, or unknown reset
+            token.
           content:
             application/json:
               schema:
                 type: object
                 required:
-                  - code
-                  - message
+                - code
+                - message
                 properties:
                   code:
                     type: string
-                    enum: [INVALID_REQUEST, INVALID_RESET_TOKEN, PASSWORD_REQUIRED, PASSWORD_INVALID]
+                    enum:
+                    - INVALID_REQUEST
+                    - INVALID_RESET_TOKEN
+                    - PASSWORD_REQUIRED
+                    - PASSWORD_INVALID
                   message:
                     type: string
               examples:
@@ -446,440 +465,305 @@ paths:
                   value:
                     code: PASSWORD_INVALID
                     message: Password must be at least 8 characters and must not be common or easily guessed.
-
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
   /api/auth/google:
     get:
-      tags: [Authentication]
-      summary: Start Google login (proposed, not implemented)
-      x-implementation-status: proposed
-      description: |
-        Proposed Google-first implementation uses the Flask Authlib client with OIDC
-        discovery. Keep provider code separate; reuse existing Matcha token/session helpers.
-        Full-page browser navigation, not an Angular HttpClient or popup request.
-        No request parameters or body. No Matcha authentication is required.
-        Creates a browser-bound, single-use OAuth transaction lasting 10 minutes.
-        Redirects to Google with response_type=code, scopes openid email profile,
-        a fixed registered backend redirect_uri, unpredictable state and nonce.
-        Use PKCE S256 where supported by the configured Google client/library;
-        keep the verifier on Flask and verify support before implementation.
-        Client secret and code exchange remain on Flask. Do not request offline
-        Google access: Matcha refresh tokens, not Google tokens, maintain sessions.
-        Starting again invalidates this browser's prior transaction and pending
-        registration; it does not revoke existing Matcha sessions.
-        No caller-controlled return URL is accepted. Swagger Try it out cannot
-        complete this browser navigation flow; open the endpoint in the browser.
+      tags:
+      - Authentication
+      summary: Start Google login
       security: []
+      description: |-
+        Navigate the browser to this endpoint to start Google Authorization Code Flow. No request body or application query parameters. Authlib generates provider state and stores temporary state in Flask's signed session cookie. The callback URL is generated from the incoming request host using url_for(..., _external=True); register that exact public URL with the provider. Google uses OIDC discovery and scopes openid email profile. No PKCE option or custom server-side OAuth transaction store is configured in the application.
+        This is a top-level browser navigation, not a Swagger Try it out/XHR flow: browsers will not follow the external OAuth flow via Swagger due to cross-origin restrictions. Use the same hostname throughout so cookies remain available. Starting login does not explicitly revoke older pending-signup records or cookies.
       responses:
         '302':
-          description: Navigate to Google; set transaction cookie and clear any pending cookie. No body.
+          description: Redirect to Google authorization. No JSON body.
           headers:
             Location:
-              description: Google authorization URL with generated state, nonce and PKCE challenge when supported. Example is illustrative.
-              schema: {type: string, format: uri}
-              example: https://accounts.google.com/o/oauth2/v2/auth?client_id=CLIENT_ID&redirect_uri=REGISTERED_CALLBACK&response_type=code&scope=openid%20email%20profile&state=RANDOM_STATE&nonce=RANDOM_NONCE&code_challenge=CHALLENGE&code_challenge_method=S256
+              description: Google authorization URL generated by Authlib, including client_id, redirect_uri,
+                state and response_type=code.
+              schema:
+                type: string
+                format: uri
             Set-Cookie:
-              $ref: '#/components/headers/OAuthTransactionCookie'
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
-        '503':
-          $ref: '#/components/responses/OAuthUnavailable'
+              $ref: '#/components/headers/OAuthSessionCookie'
   /api/auth/google/callback:
     get:
-      tags: [Authentication]
-      summary: Process Google callback (proposed, not implemented)
-      x-implementation-status: proposed
-      description: |
-        Google redirects the browser here using query parameters. No body or
-        Matcha JWT is required; the originating browser transaction cookie is required.
-        Require exactly one nonempty code or error, and a matching nonempty state;
-        reject duplicate security parameters. Validate browser binding, state,
-        expiry and single use before exchanging a code or accepting cancellation.
-        Atomically claim the transaction so a replay cannot mint another session.
-        Require the stored provider to be google and the callback URI to match this
-        transaction; a transaction started for 42 is rejected here.
-        Exchange code on Flask using the same registered redirect_uri and PKCE
-        verifier where enabled. Verify ID token signature against trusted Google
-        keys, allowed algorithm, issuer, audience/client ID, azp when applicable,
-        expiration, issued-at and transaction nonce. Reject missing/invalid claims.
-        Resolve the user by (auth_provider=google, provider_user_id=Google sub),
-        never by email as the identity key. Returning users authenticate only through
-        their stored provider; a changed Google email does not change the account's
-        provider, provider_user_id or stored email. Local verification policy still applies.
-        For an unknown provider identity, reject a missing/invalid email with
-        email_unavailable and a non-verified email with email_verification_required.
-        Require email_verified=true from the validated ID token and apply the
-        registration policy in x-social-oauth-design. If that email is already used
-        by any account, reject with account_conflict: no linking, conversion or session.
-        This includes another provider, a local account, or a different Google subject.
-        Only an unused email creates pending registration: no user, session or JWT yet.
-        All accepted callback outcomes clear the transaction cookie. Success also
-        clears old pending state. Existing Matcha cookies are replaced only on success.
-        Never put Google tokens, Matcha JWTs, email or pending secrets into redirect URLs.
-        Do not log codes, cookies or tokens. Send Cache-Control: no-store and
-        Referrer-Policy: no-referrer for all outcomes.
+      tags:
+      - Authentication
+      summary: Handle Google callback
       security:
-      - oauthTransactionCookie: []
+      - oauthSessionCookie: []
+      description: |-
+        Authlib exchanges the code on Flask and handles Google OIDC ID-token/userinfo processing. The route requires dictionary userinfo, a nonempty string sub and email, and email_verified strictly true before looking up even a returning user. Resolve users by (auth_provider=google, provider_user_id=sub). An unknown identity with unused email creates a 10-minute oauth_pending_signups record and a pending_oauth cookie. The route does not apply the local email-format validator to provider email.
+        No request body. Provider tokens remain on Flask; only Matcha authentication cookies or a pending-signup cookie are returned to the browser. Errors are JSON, not frontend redirects. Cookie cleanup on failures and no-store/no-referrer headers are not explicitly implemented. Unexpected exceptions are not normalized into a documented JSON 503 response.
       parameters:
       - name: state
         in: query
-        required: true
-        description: Must match the server-held transaction bound to this browser, including on error callbacks.
-        schema: {type: string, minLength: 1}
+        required: false
+        description: Authlib-generated state returned by the provider; required for successful state matching
+          against the initiating browser session. Invalid/missing state is handled by Authlib, not a custom
+          route validator.
+        schema:
+          type: string
       - name: code
         in: query
-        description: One-time authorization code. Required on success; mutually exclusive with error.
-        schema: {type: string, minLength: 1}
+        required: false
+        description: Authorization code returned on a successful provider response; exchanged by Flask.
+        schema:
+          type: string
       - name: error
         in: query
-        description: Provider error, for example access_denied. Required on failure; mutually exclusive with code. Never reflect raw provider text.
-        schema: {type: string, minLength: 1}
+        required: false
+        description: Provider error on denial/cancellation instead of a successful code.
+        schema:
+          type: string
       - name: error_description
         in: query
-        description: Optional untrusted provider text; ignored for user-facing output.
-        schema: {type: string}
+        required: false
+        description: Optional provider error detail; route returns its fixed generic failure message.
+        schema:
+          type: string
       responses:
-        '303':
-          description: |
-            No body. Authenticated users go to the configured existing Edit Profile screen.
-            New users go to /login?oauth=registration_required, where Angular calls
-            /api/auth/oauth/pending and opens the username modal.
-            Validated cancellation goes to /login?oauth_error=cancelled.
-            Other validated failures use oauth_error=authentication_failed,
-            account_conflict, email_verification_required, email_unavailable,
-            or provider_unavailable. All destinations are fixed same-origin paths.
-            No authentication cookies are issued on failure or pending registration.
-          headers:
-            Location:
-              description: Fixed frontend destination; /my-profile is a provisional Edit Profile example, not a confirmed route.
-              schema: {type: string, format: uri-reference}
-              example: /my-profile
-            Set-Cookie:
-              description: |
-                Separate headers expire oauth_transaction (Path=/api/auth).
-                Existing-user success also issues access_token (900 seconds, Path=/api)
-                and refresh_token (604800 seconds, Path=/api/auth), and expires
-                oauth_pending (Path=/api/auth/oauth). New-user success sets oauth_pending
-                for 600 seconds, Path=/api/auth/oauth; no Matcha JWTs.
-                All cookies are host-only, HttpOnly, SameSite=Lax, Secure in production.
-                Local HTTP development alone may disable Secure.
-              schema: {type: string}
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
-            Referrer-Policy:
-              schema: {type: string, enum: [no-referrer]}
-        '400':
-          description: Missing, malformed, mismatched, expired or replayed transaction/state, or invalid callback parameter combination. No redirect and no session. Do not consume another valid transaction on a mismatched state.
-          headers:
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
-            Referrer-Policy:
-              schema: {type: string, enum: [no-referrer]}
+        '200':
+          description: Either an existing user is logged in, or a new identity awaits username selection.
+            The callback returns JSON; it does not redirect to Angular and has no Location header.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OAuthError'
-              example: {code: INVALID_OAUTH_CALLBACK, message: Restart social sign-in.}
-        '503':
-          $ref: '#/components/responses/OAuthUnavailable'
+                $ref: '#/components/schemas/Message'
+              examples:
+                returning:
+                  value:
+                    message: Login successful.
+                newUser:
+                  value:
+                    message: Username required.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/OAuthCallbackCookies'
+        '400':
+          description: Authlib OAuthError, including authentication denial/cancellation or failed OAuth
+            state processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Google authentication failed or was cancelled.
+        '409':
+          description: Unknown provider identity has an email already used by an account. No linking or
+            provider switching. Existing accounts are resolved by provider ID before this check.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: This email is already registered. Please use your original login method.
+        '403':
+          description: Google userinfo email_verified is not strictly true.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Google email is not verified.
+        '502':
+          description: Google userinfo is not a dictionary or lacks a nonempty string sub/email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                invalid:
+                  value:
+                    message: Invalid Google user information.
+                incomplete:
+                  value:
+                    message: Incomplete Google user information.
   /api/auth/42:
     get:
       tags:
       - Authentication
-      summary: Start 42 login (proposed, not implemented)
-      x-implementation-status: proposed
-      description: |
-        Full-page navigation to 42 using Authorization Code Flow, not a popup or XHR.
-        No parameters/body or Matcha JWT required. Create a browser-bound, unpredictable,
-        single-use state with a 10-minute expiry, provider='42' and this provider's fixed
-        registered callback URI. The same small temporary-state store serves Google and 42;
-        starting either provider replaces this browser's previous OAuth/pending flow.
-        Redirect to the configured 42 authorization endpoint with response_type=code and
-        minimal identity-read scope (proposed public; confirm in the registered 42 app).
-        Use PKCE S256 only where provider support is confirmed; keep the verifier on Flask.
-        Do not assume 42 supports Google OIDC scopes, nonce or ID tokens. No arbitrary
-        return URL is accepted. Provider endpoints/scope/PKCE require official confirmation
-        before enabling 42; keep the route unavailable rather than weaken validation.
-        Google is implemented first; 42 then uses the same post-authentication session flow.
+      summary: Start 42 login
       security: []
+      description: |-
+        Navigate the browser to this endpoint to start 42 Authorization Code Flow. No request body or application query parameters. Authlib generates provider state and stores temporary state in Flask's signed session cookie. The callback URL is generated from the incoming request host using url_for(..., _external=True); register that exact public URL with the provider. 42 uses https://api.intra.42.fr/oauth/authorize and scope public. No PKCE option or custom server-side OAuth transaction store is configured in the application.
+        This is a top-level browser navigation, not a Swagger Try it out/XHR flow: browsers will not follow the external OAuth flow via Swagger due to cross-origin restrictions. Use the same hostname throughout so cookies remain available. Starting login does not explicitly revoke older pending-signup records or cookies.
       responses:
         '302':
-          description: Navigate to 42; set transaction cookie and clear prior pending cookie. No body.
+          description: Redirect to 42 authorization. No JSON body.
           headers:
             Location:
-              description: Proposed 42 authorization URL; verify against official app documentation before
-                implementation.
+              description: 42 authorization URL generated by Authlib, including client_id, redirect_uri,
+                state and response_type=code.
               schema:
                 type: string
                 format: uri
-              example: https://api.intra.42.fr/oauth/authorize?client_id=CLIENT_ID&redirect_uri=REGISTERED_42_CALLBACK&response_type=code&scope=public&state=RANDOM_STATE
             Set-Cookie:
-              $ref: '#/components/headers/OAuthTransactionCookie'
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
-        '503':
-          $ref: '#/components/responses/OAuthUnavailable'
+              $ref: '#/components/headers/OAuthSessionCookie'
   /api/auth/42/callback:
     get:
       tags:
       - Authentication
-      summary: Process 42 callback (proposed, not implemented)
-      x-implementation-status: proposed
-      description: |
-        Process a top-level provider redirect. No body or Matcha JWT is required.
-        Require exactly one code or error, matching state and the originating browser cookie.
-        Reject duplicate security parameters, expired/consumed state and wrong browser binding.
-        Require stored provider='42' and the exact registered 42 callback; reject Google flows.
-        Atomically claim the transaction before exchange, including validated cancellation.
-        Exchange the code on Flask using client credentials, registered redirect_uri and PKCE
-        verifier if supported. Proposed token endpoint is https://api.intra.42.fr/oauth/token.
-        Use the returned bearer token only server-side over HTTPS to fetch the current user
-        from the fixed identity endpoint, proposed https://api.intra.42.fr/v2/me. Validate
-        successful responses, token type/expiry and expected user payload; never accept a
-        user ID or profile from browser input. Do not decode an opaque token as a JWT or
-        invent a Google-style ID token/nonce requirement for this OAuth-only integration.
-        The stable numeric user id, converted to a decimal string, becomes provider_user_id;
-        login/display name and email are not identity keys. Resolve (auth_provider='42', id).
-        A returning user gets a Matcha session and cookies using the existing helpers.
-        For an unknown identity, apply the shared email and duplicate-account policy in
-        x-social-oauth-design. Missing email redirects with oauth_error=email_unavailable.
-        If email ownership cannot be established under a documented trusted 42 guarantee,
-        redirect with oauth_error=email_verification_required and create no account or pending
-        state. A /me email field alone is not treated as verified. Confirmation of this
-        provider guarantee is an implementation blocker for new 42 registrations; no mailbox
-        verification endpoints or placeholder emails are introduced in this simple contract.
-        An already-used email redirects with account_conflict, with no linking/conversion.
-        Otherwise create 10-minute pending registration and redirect for username selection.
-        Clear the claimed transaction cookie on handled outcomes; issue JWTs only for a
-        returning user. No provider tokens or credentials are sent to Angular, URLs or logs.
-        All responses use no-store and no-referrer. Exact 42 endpoints and email guarantees
-        must be checked in official app documentation before implementation.
+      summary: Handle 42 callback
       security:
-      - oauthTransactionCookie: []
+      - oauthSessionCookie: []
+      description: |-
+        Authlib exchanges the code on Flask. Flask then calls https://api.intra.42.fr/v2/me with the provider bearer token and a 10-second request timeout. Requires a dictionary response, integer id (not bool) and nonempty string email, including for returning users. The id is converted to text and matched as (auth_provider=42, provider_user_id=id). An unknown identity with unused email creates pending signup. The current route does not verify email ownership or apply the local email-format validator; signup later sets is_verified=true. This gap is documented, not a guarantee of verified 42 email. 42 tokens are not treated as Google ID tokens.
+        No request body. Provider tokens remain on Flask; only Matcha authentication cookies or a pending-signup cookie are returned to the browser. Errors are JSON, not frontend redirects. Cookie cleanup on failures and no-store/no-referrer headers are not explicitly implemented. Unexpected exceptions are not normalized into a documented JSON 503 response.
       parameters:
       - name: state
         in: query
-        required: true
-        description: Must match the server-held transaction bound to this browser, including on error callbacks.
+        required: false
+        description: Authlib-generated state returned by the provider; required for successful state matching
+          against the initiating browser session. Invalid/missing state is handled by Authlib, not a custom
+          route validator.
         schema:
           type: string
-          minLength: 1
       - name: code
         in: query
-        description: One-time authorization code. Required on success; mutually exclusive with error.
+        required: false
+        description: Authorization code returned on a successful provider response; exchanged by Flask.
         schema:
           type: string
-          minLength: 1
       - name: error
         in: query
-        description: Provider error, for example access_denied. Required on failure; mutually exclusive
-          with code. Never reflect raw provider text.
+        required: false
+        description: Provider error on denial/cancellation instead of a successful code.
         schema:
           type: string
-          minLength: 1
       - name: error_description
         in: query
-        description: Optional untrusted provider text; ignored for user-facing output.
+        required: false
+        description: Optional provider error detail; route returns its fixed generic failure message.
         schema:
           type: string
       responses:
-        '303':
-          description: |
-            No body. Authenticated users go to the configured existing Edit Profile screen.
-            New users go to /login?oauth=registration_required, where Angular calls
-            /api/auth/oauth/pending and opens the username modal.
-            Validated cancellation goes to /login?oauth_error=cancelled.
-            Other validated failures use oauth_error=authentication_failed,
-            account_conflict, email_verification_required, email_unavailable,
-            or provider_unavailable. All destinations are fixed same-origin paths.
-            No authentication cookies are issued on failure or pending registration.
-          headers:
-            Location:
-              description: Fixed frontend destination; /my-profile is a provisional Edit Profile example,
-                not a confirmed route.
-              schema:
-                type: string
-                format: uri-reference
-              example: /my-profile
-            Set-Cookie:
-              description: |
-                Separate headers expire oauth_transaction (Path=/api/auth).
-                Existing-user success also issues access_token (900 seconds, Path=/api)
-                and refresh_token (604800 seconds, Path=/api/auth), and expires
-                oauth_pending (Path=/api/auth/oauth). New-user success sets oauth_pending
-                for 600 seconds, Path=/api/auth/oauth; no Matcha JWTs.
-                All cookies are host-only, HttpOnly, SameSite=Lax, Secure in production.
-                Local HTTP development alone may disable Secure.
-              schema:
-                type: string
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
-            Referrer-Policy:
-              schema:
-                type: string
-                enum:
-                - no-referrer
-        '400':
-          description: Missing, malformed, mismatched, expired or replayed transaction/state, or invalid
-            callback parameter combination. No redirect and no session. Do not consume another valid transaction
-            on a mismatched state.
-          headers:
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
-            Referrer-Policy:
-              schema:
-                type: string
-                enum:
-                - no-referrer
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthError'
-              example:
-                code: INVALID_OAUTH_CALLBACK
-                message: Restart social sign-in.
-        '503':
-          $ref: '#/components/responses/OAuthUnavailable'
-  /api/auth/oauth/pending:
-    get:
-      tags: [Authentication]
-      summary: Inspect pending social registration (proposed, not implemented)
-      x-implementation-status: proposed
-      description: |
-        Requires a valid opaque oauth_pending cookie, not a Matcha access token.
-        No query parameters or body. Does not consume pending state or extend its
-        10-minute lifetime. Returns only modal metadata and a CSRF token bound to
-        this pending registration. No provider tokens, provider user ID, or email.
-        Angular must use this response, not a redirect query flag, as proof that
-        registration can proceed. Expired/used state requires restarting the original provider login.
-        JSON and all errors use Cache-Control: no-store; restrict access to same origin.
-      security:
-      - oauthPendingCookie: []
-      responses:
         '200':
-          description: Pending identity is verified; username selection can proceed.
-          headers:
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
+          description: Either an existing user is logged in, or a new identity awaits username selection.
+            The callback returns JSON; it does not redirect to Angular and has no Location header.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OAuthPending'
+                $ref: '#/components/schemas/Message'
               examples:
-                google:
+                returning:
                   value:
-                    status: registration_required
-                    provider: google
-                    expires_at: '2026-11-15T12:10:00Z'
-                    csrf_token: opaque-csrf-token
-                fortyTwo:
+                    message: Login successful.
+                newUser:
                   value:
-                    status: registration_required
-                    provider: '42'
-                    expires_at: '2026-11-15T12:10:00Z'
-                    csrf_token: opaque-csrf-token
-        '401':
-          $ref: '#/components/responses/OAuthPendingInvalid'
-        '503':
-          $ref: '#/components/responses/OAuthUnavailable'
+                    message: Username required.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/OAuthCallbackCookies'
+        '400':
+          description: Authlib OAuthError, including authentication denial/cancellation or failed OAuth
+            state processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: 42 authentication failed or was cancelled.
+        '409':
+          description: Unknown provider identity has an email already used by an account. No linking or
+            provider switching. Existing accounts are resolved by provider ID before this check.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: This email is already registered. Please use your original login method.
+        '502':
+          description: 42 profile request/network/HTTP/JSON failure, invalid profile shape, or missing
+            id/email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                unavailable:
+                  value:
+                    message: 42 authentication service is temporarily unavailable.
+                invalid:
+                  value:
+                    message: Invalid response from 42.
+                incomplete:
+                  value:
+                    message: Incomplete user information from 42.
   /api/auth/oauth/complete:
     post:
-      tags: [Authentication]
-      summary: Complete social registration (proposed, not implemented)
-      x-implementation-status: proposed
-      description: |
-        Requires pending cookie, JSON body, exact trusted frontend Origin and
-        X-CSRF-Token obtained from /oauth/pending. No Matcha JWT or password required.
-        Identity and verified email come exclusively from server-held pending data;
-        never accept them from the request. Names are not required or requested here;
-        store first_name and last_name as NULL until the user fills Edit Profile. Validate username using the same
-        rules as password signup (non-whitespace, at most 50 characters, unchanged).
-        Enforce username uniqueness in PostgreSQL, including concurrent requests.
-        Atomically recheck email/identity conflicts, create the user with
-        auth_provider and provider_user_id from verified pending state, password_hash=NULL,
-        consume pending state and create session with refresh hash. Roll back all
-        changes if any step fails. At most one concurrent completion can succeed.
-        A username conflict leaves pending state usable until its original expiry.
-        Identity/email conflicts invalidate pending state; no account is merged,
-        converted or authenticated. An email owned by another authentication method
-        requires signing in with that account's original method. A concurrently created
-        provider identity requires restarting its provider login. Used state returns 401.
-        No request field can select or change auth_provider or provider_user_id.
-        Successful registration issues existing Matcha JWT cookies. Session expiry
-        is fixed at seven days from creation; existing refresh/logout/me behavior applies.
-        Returns JSON, not an HTTP redirect: Angular loads /me and navigates to the
-        fixed redirect_url for the existing Edit Profile screen. Provider credentials
-        and Matcha JWTs are never returned in JSON. All responses are no-store.
+      tags:
+      - Authentication
+      summary: Complete social signup with a username
       security:
-      - oauthPendingCookie: []
-      parameters:
-      - name: Origin
-        in: header
-        required: true
-        description: Browser-supplied trusted frontend origin, checked exactly. Missing, null or foreign origin is rejected.
-        schema: {type: string, format: uri}
-        example: https://matcha.example
-      - name: X-CSRF-Token
-        in: header
-        required: true
-        description: CSRF token bound to the pending registration, returned by GET /oauth/pending.
-        schema: {type: string, minLength: 1}
+      - pendingOAuthCookie: []
+      description: |-
+        Requires the browser's pending_oauth cookie and an allowed Origin. No Matcha access token, refresh token or X-CSRF-Token is required. Origin validation runs first; the route then checks cookie presence, JSON body and username in that order. Additional JSON fields are ignored. Provider, email and provider user ID come exclusively from the pending record.
+        The DB record expires after 10 minutes. SELECT FOR UPDATE, user INSERT and pending-record DELETE occur in one transaction. Names and password remain NULL; is_verified is set true for both providers. UNIQUE constraints enforce username/email/provider identity uniqueness. A uniqueness failure rolls back and keeps the pending record; the response does not distinguish which constraint failed. Replay after success returns 401.
+        After account creation commits, the existing login helper creates the Matcha session and JWTs in separate DB operations. Session issuance is not atomic with account creation/pending consumption. Success returns JSON without redirect_url or Location. Only successful completion clears pending_oauth. No /oauth/pending inspection route exists; frontend integration remains to be discussed.
+        An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/OAuthCompleteRequest'
-            example: {username: alex}
+            example:
+              username: alex_42
       responses:
         '201':
-          description: Single-provider account and session created. No Location header; Angular follows redirect_url.
+          description: Account created and Matcha login cookies issued. Pending cookie deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Login successful.
           headers:
             Set-Cookie:
-              $ref: '#/components/headers/OAuthAuthenticationCookies'
-            Cache-Control:
-              $ref: '#/components/headers/OAuthNoStore'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthCompleteResult'
-              example: {message: Registration completed., redirect_url: /my-profile}
+              $ref: '#/components/headers/OAuthCompleteCookies'
         '400':
-          description: Invalid JSON object or username. Pending state remains usable until expiry.
+          description: 'With a pending cookie present: missing/malformed/non-object JSON (including unsupported
+            content type), or username outside the allowed pattern.'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OAuthError'
-              example: {code: INVALID_USERNAME, message: Enter a username of 1 to 50 characters containing a non-whitespace character.}
-        '401':
-          $ref: '#/components/responses/OAuthPendingInvalid'
-        '403':
-          description: Invalid or missing Origin/CSRF token. No registration or session created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthError'
-              example: {code: CSRF_FAILED, message: Registration request could not be verified.}
-        '409':
-          description: Username unavailable (retry allowed), or identity/email already registered (pending state invalidated). Use the existing account's original authentication method. No account linking, provider switching or partial account creation.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthError'
+                $ref: '#/components/schemas/Message'
               examples:
+                request:
+                  value:
+                    message: Invalid request.
                 username:
-                  value: {code: USERNAME_TAKEN, message: Username is already taken.}
-                identity:
-                  value: {code: ACCOUNT_CONFLICT, message: Registration cannot be completed. Sign in using your existing account's original method.}
-        '415':
-          description: Content-Type must be application/json. Pending state is not consumed.
+                  value:
+                    message: Invalid username.
+        '401':
+          description: Missing pending cookie, or valid input with unknown/expired/already-consumed pending
+            token. Cookie is not cleared.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OAuthError'
-              example: {code: UNSUPPORTED_MEDIA_TYPE, message: Send application/json.}
-        '503':
-          $ref: '#/components/responses/OAuthUnavailable'
-
+                $ref: '#/components/schemas/Message'
+              examples:
+                missing:
+                  value:
+                    message: OAuth signup session not found.
+                invalid:
+                  value:
+                    message: OAuth signup session expired or invalid.
+        '409':
+          description: Any DB uniqueness violation during account creation; pending record remains valid
+            until its expiry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                message: Username or email already exists.
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
 components:
   schemas:
     Email:
@@ -948,8 +832,8 @@ components:
           minLength: 1
           maxLength: 50
           pattern: \S
-          description: Registered username, not email. Must contain a non-whitespace character.
-            Passed to the database unchanged, without trimming or case normalization.
+          description: Registered username, not email. Must contain a non-whitespace character. Passed
+            to the database unchanged, without trimming or case normalization.
         password:
           type: string
           format: password
@@ -998,50 +882,26 @@ components:
           type: string
         first_name:
           type: string
+          nullable: true
         last_name:
           type: string
+          nullable: true
         email:
           type: string
         is_verified:
           type: boolean
-    OAuthError:
-      type: object
-      required: [code, message]
-      properties:
-        code:
-          type: string
-          enum: [INVALID_OAUTH_CALLBACK, PENDING_REGISTRATION_INVALID, INVALID_USERNAME, CSRF_FAILED, USERNAME_TAKEN, ACCOUNT_CONFLICT, UNSUPPORTED_MEDIA_TYPE, OAUTH_UNAVAILABLE]
-        message: {type: string}
-    OAuthPending:
-      type: object
-      required: [status, provider, expires_at, csrf_token]
-      properties:
-        status: {type: string, enum: [registration_required]}
-        provider: {type: string, enum: [google, '42']}
-        expires_at: {type: string, format: date-time}
-        csrf_token: {type: string, minLength: 1}
     OAuthCompleteRequest:
       type: object
-      additionalProperties: false
-      required: [username]
+      required:
+      - username
       properties:
         username:
           type: string
-          minLength: 1
+          minLength: 3
           maxLength: 50
-          pattern: \S
-          description: Same uniqueness and case-sensitive comparison as current username signup. No trimming or case normalization.
-    OAuthCompleteResult:
-      type: object
-      required: [message, redirect_url]
-      properties:
-        message: {type: string}
-        redirect_url:
-          type: string
-          format: uri-reference
-          description: Fixed same-origin Edit Profile path. /my-profile is provisional until the frontend route is confirmed.
-          example: /my-profile
-
+          pattern: ^[A-Za-z0-9_]{3,50}$
+          description: ASCII letters, digits and underscore only; no trimming. Case-sensitive DB username
+            uniqueness.
   headers:
     AuthenticationCookies:
       description: 'Two separate Set-Cookie headers: access_token=<JWT>; Max-Age=900; HttpOnly; Path=/api;
@@ -1049,171 +909,55 @@ components:
         Both also include Expires. Secure is currently disabled. Tokens are not returned in JSON.'
       schema:
         type: string
-
-    OAuthNoStore:
-      schema: {type: string, enum: [no-store]}
-    OAuthTransactionCookie:
-      description: >
-        Set oauth_transaction=<opaque-random-handle>; Max-Age=600;
-        Path=/api/auth; HttpOnly; SameSite=Lax; Secure in production;
-        no Domain. Separate header expires oauth_pending at Path=/api/auth/oauth.
-        Handle resolves provider-bound server-side state, Google nonce and PKCE verifier where applicable; never exposes them in JSON.
-      schema: {type: string}
-    OAuthAuthenticationCookies:
-      description: >
-        Separate Set-Cookie headers issue access_token=<JWT>; Max-Age=900; Path=/api
-        and refresh_token=<JWT>; Max-Age=604800; Path=/api/auth, both HttpOnly,
-        SameSite=Lax, host-only and Secure in production. Local HTTP development may
-        disable Secure. Also expires oauth_pending at Path=/api/auth/oauth.
-        Reuses existing token/session semantics; seven-day session expiry never slides.
-      schema: {type: string}
+    OAuthSessionCookie:
+      description: Authlib uses Flask's default signed session cookie named session (Path=/; HttpOnly;
+        Secure disabled; no SameSite attribute configured). It holds temporary OAuth state, not a Matcha
+        login JWT. Browser manages this cookie; no custom oauth_transaction cookie is implemented.
+      schema:
+        type: string
+    OAuthCallbackCookies:
+      description: 'Returning user: two separate Set-Cookie headers set access_token=<JWT> (Max-Age=900;
+        Path=/api) and refresh_token=<JWT> (Max-Age=604800; Path=/api/auth). New user: pending_oauth=<opaque
+        token> (Max-Age=600; Path=/api/auth), without new Matcha JWTs. These cookies are HttpOnly, SameSite=Lax,
+        host-only, Secure disabled and include Expires. Authlib may also update/clear its Flask session
+        cookie. Existing pending_oauth is not explicitly cleared for returning-user login.'
+      schema:
+        type: string
+    OAuthCompleteCookies:
+      description: Issues the same access_token and refresh_token cookies as login (HttpOnly; SameSite=Lax;
+        Secure disabled; paths /api and /api/auth; Max-Age 900 and 604800). A separate header expires
+        pending_oauth at Path=/api/auth. Tokens are never returned in JSON.
+      schema:
+        type: string
   responses:
-    OAuthPendingInvalid:
-      description: Missing, invalid, expired, consumed or invalidated pending cookie. No Matcha authentication is granted. Restart the original provider login.
-      headers:
-        Cache-Control:
-          $ref: '#/components/headers/OAuthNoStore'
-        Set-Cookie:
-          description: Expire oauth_pending at Path=/api/auth/oauth, with matching cookie attributes.
-          schema: {type: string}
+    ForbiddenOrigin:
+      description: Global validation rejected a missing, null or unlisted Origin before route execution.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/OAuthError'
-          example: {code: PENDING_REGISTRATION_INVALID, message: Restart social sign-in.}
-    OAuthUnavailable:
-      description: OAuth configuration, provider or storage unavailable. No partial account/session issued. Retry by restarting login if transaction status is uncertain.
-      headers:
-        Cache-Control:
-          $ref: '#/components/headers/OAuthNoStore'
-        Referrer-Policy:
-          schema: {type: string, enum: [no-referrer]}
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/OAuthError'
-          example: {code: OAUTH_UNAVAILABLE, message: Social sign-in is temporarily unavailable.}
-
-x-social-oauth-design:
-  status: Proposed contract. All six social OAuth operations are unimplemented in the inspected routes. This edit changes YAML only.
-  inspected-current-implementation:
-    authentication: >
-      Flask/PostgreSQL username-password login, 15-minute access JWT, refresh JWT and
-      server-side sessions with fixed seven-day expiry, HttpOnly SameSite=Lax cookies,
-      /me, refresh rotation and all-device logout exist. Preserve these semantics.
-    worktree-notes: >
-      The user's current schema.sql already declares auth_provider, provider_user_id,
-      nullable password_hash/first_name/last_name, provider CHECK constraints and composite
-      provider uniqueness. requirements.txt already lists Authlib. google.py is empty;
-      router.py has no Google, 42 or pending-registration endpoints. Live DB migration
-      status and installed Authlib version were not checked. These existing worktree
-      changes are not changes made by this documentation task.
-    gaps: >
-      Existing local login and password reset do not yet restrict auth_provider to local.
-      Social registration and temporary state storage do not exist. Current /me User
-      schema documents names as strings; proposed nullable-name evolution is noted below,
-      not silently presented as an already implemented social-user response.
-  simple-implementation-boundary: |
-    Implement Google first with Flask Authlib's OAuth/OIDC client and Google discovery.
-    Let Authlib handle protocol validation; do not hand-roll signature or state checks.
-    Then implement separate /42 and /42/callback routes with the same post-auth flow.
-    Use small provider-specific functions and existing Matcha session/JWT helpers;
-    no provider plugin framework, generic identity hierarchy or oauth_accounts table.
-    Do not store provider tokens in Flask's default client-side signed session cookie:
-    signing is not encryption. Keep transient credentials/verifiers server-side and
-    expose only an opaque browser-binding cookie. Configure Authlib's state storage
-    accordingly, without replacing the existing Matcha sessions table or JWT format.
-    Use one small PostgreSQL oauth_flows store for both authorization and pending
-    phases. This avoids separate OAuth transaction and pending-registration tables
-    while allowing atomic registration and one-time consumption. No Redis is required.
-    Existing helper transaction boundaries may need a narrow adjustment for social
-    completion: create user, session and refresh hash and consume pending state in
-    the same DB transaction; reusing helpers with independent commits is insufficient.
-  account-policy: |
-    Each users row has one immutable auth_provider: local, google or '42'. No linking,
-    provider switching, local password setup for social users or provider selection in
-    request JSON. Resolve returning Google users by verified sub and returning 42 users
-    by the authenticated /me numeric id stored as text, always paired with auth_provider.
-    A changed provider email does not overwrite local email or move an account.
-    For an unknown provider identity, reject an email owned by any existing account,
-    including an unverified local account or a different identity of the same provider.
-    Match email using current exact DB semantics; no alias rewriting or case folding.
-    No automatic login by email. Callback conflict redirects with account_conflict;
-    a conflict discovered during completion returns 409 ACCOUNT_CONFLICT. Do not reveal
-    the existing account's provider. Keep username and email uniqueness enforced by DB.
-  email-policy: |
-    Never fabricate an email or treat the mere presence of an email as verification.
-    New Google users require email_verified=true from a validated ID token and an email
-    compatible with the existing schema. New 42 users require documented provider
-    assurance of email ownership; no such guarantee was confirmed during this review.
-    Without it, reject new 42 registration with email_verification_required. Missing or
-    invalid email returns email_unavailable. No pending state or account is created.
-    These failure codes return users to the login UI with a clear explanation; repeated
-    retries cannot overcome an unsupported verification guarantee. An independent email
-    verification flow would require a later explicit contract decision, not an assumed
-    feature. Returning users are resolved by provider ID; email does not select the user.
-  proposed-data-model:
-    users: |
-      Retain users.id, unique username and unique email. Keep the currently drafted
-      auth_provider VARCHAR(20) NOT NULL DEFAULT 'local', allowed local/google/'42',
-      provider_user_id VARCHAR(255) NULL and UNIQUE(auth_provider, provider_user_id).
-      Local users require a non-NULL password_hash and NULL provider_user_id; social
-      users require NULL password_hash and nonempty provider_user_id. Current draft
-      checks non-NULL provider IDs but still needs a nonempty validation at implementation.
-      first_name and last_name remain nullable: leave both NULL at social signup and
-      collect them on Edit Profile. Do not require or invent names/passwords.
-      New social accounts receive is_verified=true only after the email policy succeeds.
-      Existing sessions table and Matcha token claims/lifetimes are unchanged.
-    oauth_flows: |
-      Proposed single temporary table, not present in schema.sql: id, provider,
-      phase (authorization, exchanging, pending, consumed), hashed opaque browser handle,
-      state hash, optional Google nonce and PKCE verifier, provider_user_id, verified
-      email, CSRF binding, expires_at, consumed_at. Pending-only identity fields are NULL
-      until provider validation succeeds. Do not persist Google/42 access or ID tokens.
-      Authorization lifetime is 10 minutes. Claim valid state atomically before code
-      exchange so it cannot be replayed or submitted to the other provider's callback.
-      For new users, rotate to a fresh pending cookie handle and start a new 10-minute
-      pending expiry; clear authorization secrets. Returning success/failure terminates
-      the flow. A new start invalidates this browser's prior flow for either provider.
-      GET pending never extends expiry. POST complete locks the row, rechecks expiry,
-      provider identity/email/username uniqueness, creates user/session/refresh hash,
-      and consumes pending state atomically. Roll back all on failure. Username conflicts
-      keep pending usable; email/identity conflicts invalidate it. Concurrent/replayed
-      completion has at most one success. Purge expired/consumed records routinely.
-    local-compatibility: |
-      Existing users migrate/backfill as local; verify the actual DB separately from
-      schema.sql. Add only necessary provider guards to local login and reset later.
-      /login must reject social accounts using the generic invalid-credentials response
-      before attempting password verification. /forgot-password sends only for local
-      users with the same generic 202 for social/unknown users. /reset-password rechecks
-      local provider before updating password. No password-based provider conversion.
-    me-contract-evolution: |
-      Reuse /api/auth/me, not a separate social-user endpoint. Before serving new social
-      users, its User.first_name and User.last_name schema must allow null and Angular
-      must handle missing names. Existing fields remain present and local-user responses
-      stay unchanged. This is a proposed additive nullable change, not a new endpoint;
-      the existing User schema above remains the documented current contract.
-  browser-and-security: |
-    Use full-page redirects, fixed registered provider-specific callback URLs and a
-    same-origin frontend/API proxy. No caller-controlled redirect destinations.
-    Bind state to browser, provider, callback and expiry and consume it once. Google
-    adds nonce and ID-token signature/issuer/audience/expiry validation through Authlib.
-    For 42, validate the backend code exchange and authenticated identity endpoint;
-    do not assume OIDC ID tokens or Google verification fields. Enable PKCE S256 where
-    confirmed supported. Provider failures, cancellation, wrong provider/state and replay
-    must not create accounts or sessions. Tokens/verifiers never go to Angular or logs.
-    Shared oauth_transaction cookie uses Path=/api/auth; oauth_pending uses
-    Path=/api/auth/oauth. Both are host-only, HttpOnly, SameSite=Lax and Secure in production.
-    Pending is never a Matcha session. POST complete requires trusted Origin plus the
-    pending-bound CSRF token. JSON and redirect responses use no-store; callbacks also
-    use no-referrer. Existing Matcha access/refresh cookie paths and lifetimes are reused.
-  unresolved-decisions:
-  - Confirm Edit Profile route with frontend; /my-profile remains an illustrative placeholder, not a verified Angular route.
-  - Confirm /login?oauth=registration_required username-modal handling and nullable names in /me.
-  - Verify official 42 authorize/token/me URLs, minimal scopes, PKCE support and email ownership guarantee through authorized 42 documentation access before enabling new 42 registration. Public documentation access was blocked during review.
-  - Register provider clients and exact public callback URLs and configure Authlib server-side transient state; Google first, then 42. No dependencies/configuration were changed here.
-  references:
-  - https://docs.authlib.org/en/v1.5.0/client/flask.html
-  - https://developers.google.com/identity/openid-connect/openid-connect
-  - https://developers.google.com/identity/protocols/oauth2/web-server
-  - https://api.intra.42.fr/apidoc/guides/web_application_flow
+            $ref: '#/components/schemas/Message'
+          example:
+            message: Forbidden origin.
+x-current-implementation-notes:
+  oauth-flow-gaps:
+  - Start endpoints redirect to the provider, but callbacks return JSON instead of redirecting to Angular.
+    The intended username-modal/Edit Profile navigation is not implemented.
+  - GET /api/auth/oauth/pending is absent and intentionally not documented as an executable route. Discuss
+    its contract with the frontend teammate before implementing.
+  - No redirect_url is returned by signup completion. The actual Edit Profile Angular route remains to
+    be agreed.
+  - 42 callback checks email presence, not email verification; completed social accounts are nevertheless
+    marked verified.
+  - No explicit PKCE configuration, custom OAuth transaction table, X-CSRF-Token check or OAuth cache/referrer
+    response headers are configured. Authlib manages OAuth state/OIDC validation; global Origin validation
+    protects writes.
+  - 'Production cookie hardening is not implemented: application-issued JWT and pending cookies currently
+    use secure=False. Production Origin isolation alone does not change that.'
+  storage: users stores auth_provider (local/google/42), provider_user_id, nullable password_hash and
+    names, UNIQUE username/email and UNIQUE(auth_provider, provider_user_id). No account linking table.
+    oauth_pending_signups stores a hashed random token and provider identity/email with 10-minute expiry;
+    completion deletes the record atomically with user creation. There is no oauth_flows table. Existing
+    sessions and JWT format remain unchanged.
+  failure-boundary: DB failures/unexpected provider exceptions can produce Flask default error responses
+    rather than JSON. Only explicitly handled application statuses are described per route. Session creation
+    occurs after social account creation commits.
