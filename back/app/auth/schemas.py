@@ -41,16 +41,19 @@ def validate_registration(data):
 
 def validate_login(data):
     """Validate login request data."""
-    email = data.get("email")
+    username = data.get("username")
     password = data.get("password")
 
-    validate_email_format(email)
 
     if not isinstance(password, str) or not password:
         raise ValueError("Invalid password")
-
+    if not isinstance(username, str) or not username.strip():
+        raise ValueError("Invalid username")
+    if len(username) > 50:
+        raise ValueError("Invalid username")
+    
     return {
-        "email": email,
+        "username": username,
         "password": password,
     }
 

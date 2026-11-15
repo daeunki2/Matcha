@@ -158,7 +158,7 @@ paths:
       tags:
       - Authentication
       summary: Log in
-      description: Checks credentials and email verification, creates a seven-day server-side session,
+      description: Checks username and password credentials and email verification, creates a seven-day server-side session,
         and sets access and refresh JWT cookies signed with HS256. In Swagger UI, log in using Try it
         out, then call /api/auth/me from the same origin; the browser manages HttpOnly cookies. Swagger
         UI cannot manually set the Cookie header through Authorize.
@@ -168,6 +168,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: alex
+              password: your-account-password
       responses:
         '200':
           description: Logged in; authentication cookies set.
@@ -181,7 +184,7 @@ paths:
             Set-Cookie:
               $ref: '#/components/headers/AuthenticationCookies'
         '400':
-          description: Invalid JSON object or invalid email/password input.
+          description: Invalid JSON object or invalid username/password input.
           content:
             application/json:
               schema:
@@ -194,13 +197,13 @@ paths:
                   value:
                     message: Please check your input.
         '401':
-          description: Email not found or password does not match.
+          description: Username not found or password does not match.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
               example:
-                message: Invalid email or password.
+                message: Invalid username or password.
         '403':
           description: Credentials match, but email is not verified.
           content:
@@ -504,11 +507,16 @@ components:
     LoginRequest:
       type: object
       required:
-      - email
+      - username
       - password
       properties:
-        email:
-          $ref: '#/components/schemas/Email'
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: \S
+          description: Registered username, not email. Must contain a non-whitespace character.
+            Passed to the database unchanged, without trimming or case normalization.
         password:
           type: string
           format: password

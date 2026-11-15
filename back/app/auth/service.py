@@ -140,16 +140,16 @@ def resend_verification_email(email):
         logger.exception("Verification email resend failed")
         raise
 
-def authenticate_user(email, password):
-    """Find a user by email."""
+def authenticate_user(username, password):
+    """Find a user by username."""
     with get_connection() as conn:
         user = conn.execute(
             """
-            SELECT id, email, password_hash, is_verified
+            SELECT id, username, password_hash, is_verified
             FROM users
-            WHERE email = %s
+            WHERE username = %s
             """,
-            (email,),
+            (username,),
         ).fetchone()
     if user is None:
         return None

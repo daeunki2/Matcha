@@ -114,14 +114,14 @@ def login():
 
     try:
         user = service.authenticate_user(
-            validated_data["email"],
+            validated_data["username"],
             validated_data["password"],
         )
     except service.EmailNotVerifiedError:
         return jsonify({"message": "Please verify your email."}), 403
 
     if user is None:
-        return jsonify({"message": "Invalid email or password."}), 401
+        return jsonify({"message": "Invalid username or password."}), 401
 
     session_id = service.create_session(user[0])
     access_token = service.create_access_token(user[0], session_id)
