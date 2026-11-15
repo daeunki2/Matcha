@@ -504,3 +504,148 @@ def reset_password(token, password):
         )
 
     return True
+
+
+
+def find_oauth_user(provider, provider_user_id):
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            SELECT id, username, email
+            FROM users
+            WHERE auth_provider = %s
+              AND provider_user_id = %s
+            """,
+            (provider, provider_user_id),
+        ).fetchone()
+
+    return user
+
+
+def find_user_by_email(email):
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            SELECT id, auth_provider
+            FROM users
+            WHERE email = %s
+            """,
+            (email,),
+        ).fetchone()
+
+    return user
+
+def create_oauth_user(username, pending):
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            INSERT INTO users (
+                username,
+                email,
+                auth_provider,
+                provider_user_id,
+                is_verified
+            )
+            VALUES (%s, %s, %s, %s, TRUE)
+            RETURNING id
+            """,
+            (
+                username,
+                pending["email"],
+                pending["provider"],
+                pending["provider_user_id"],
+            ),
+        ).fetchone()
+
+    return user[0]
+
+
+def create_login_response(user_id):
+    from flask import jsonify
+
+    session_id = create_session(user_id)
+    access_token = create_access_token(user_id, session_id)
+    refresh_token = create_refresh_token(user_id, session_id)
+
+    response = jsonify({"message": "Login successful."})
+
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=False,
+        samesite="Lax",
+        max_age=15 * 60,
+        path="/api",
+    )
+
+    response.set_cookie(
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="Lax",
+        max_age=7 * 24 * 60 * 60,
+        path="/api/auth",
+    )
+
+    return response
+
+
+def create_pending_oauth_signup(provider, provider_user_id, email):
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO oauth_pending_signups
+                (token_hash, auth_provider, provider_user_id, email, expires_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (token_hash, provider, provider_user_id, email, expires_at),
+        )
+
+    return token
+
+
+def complete_pending_oauth_signup(username, token):
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    with get_connection() as conn:
+        with conn.transaction():
+            pending = conn.execute(
+                """
+                SELECT auth_provider, provider_user_id, email
+                FROM oauth_pending_signups
+                WHERE token_hash = %s
+                  AND expires_at > NOW()
+                FOR UPDATE
+                """,
+                (token_hash,),
+            ).fetchone()
+
+            if pending is None:
+                return None
+
+            user = conn.execute(
+                """
+                INSERT INTO users
+                    (username, email, auth_provider,
+                     provider_user_id, is_verified)
+                VALUES (%s, %s, %s, %s, TRUE)
+                RETURNING id
+                """,
+                (username, pending[2], pending[0], pending[1]),
+            ).fetchone()
+
+            conn.execute(
+                """
+                DELETE FROM oauth_pending_signups
+                WHERE token_hash = %s
+                """,
+                (token_hash,),
+            )
+
+    return user[0]

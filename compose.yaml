@@ -39,6 +39,10 @@ services:
       EMAIL_FROM: ${EMAIL_FROM}
       FRONTEND_URL: ${FRONTEND_URL}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      FT_CLIENT_ID: ${FT_CLIENT_ID}
+      FT_CLIENT_SECRET: ${FT_CLIENT_SECRET}
     volumes:
       - ./back:/app
     healthcheck:

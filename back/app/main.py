@@ -1,20 +1,43 @@
 """Entry point for the Flask backend application."""
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flasgger import Swagger
 from pathlib import Path
 from flask import send_from_directory, render_template_string
 from app.auth.router import auth_bp
+import os
+from app.auth.google_oauth import oauth
+from app.auth.google_router import google_bp
+from app.auth.oauth_router import oauth_bp
+from app.auth.ft_router import ft_bp
 
 app = Flask(__name__)
+
+ALLOWED_ORIGINS = {
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+}
+
+@app.before_request
+def validate_origin():
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return None
+
+    origin = request.headers.get("Origin")
+
+    if origin not in ALLOWED_ORIGINS:
+        return jsonify({"message": "Forbidden origin."}), 403
+
+    return None
+
+
+app.secret_key = os.environ["SECRET_KEY"]
+oauth.init_app(app)
+
 DOCS_DIR = Path(__file__).resolve().parent.parent / "docs"
-
-
 @app.get("/docs/spec/<path:filename>")
 def openapi_spec(filename):
     return send_from_directory(DOCS_DIR, filename)
-
-
 @app.get("/docs")
 def swagger_ui():
     return render_template_string("""
@@ -39,8 +62,11 @@ def swagger_ui():
     """)
 Swagger(app)
 
+#Blue Print
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
-
+app.register_blueprint(google_bp, url_prefix="/api/auth")
+app.register_blueprint(oauth_bp, url_prefix="/api/auth")
+app.register_blueprint(ft_bp, url_prefix="/api/auth")
 
 @app.get("/health")
 def health():

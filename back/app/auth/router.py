@@ -123,33 +123,7 @@ def login():
     if user is None:
         return jsonify({"message": "Invalid username or password."}), 401
 
-    session_id = service.create_session(user[0])
-    access_token = service.create_access_token(user[0], session_id)
-    refresh_token = service.create_refresh_token(user[0], session_id)
-
-    response = jsonify({"message": "Login successful."})
-
-    response.set_cookie(
-        "access_token",
-        access_token,
-        httponly=True,
-        secure=False,
-        samesite="Lax",
-        max_age=15 * 60,
-        path="/api",
-    )
-
-    response.set_cookie(
-        "refresh_token",
-        refresh_token,
-        httponly=True,
-        secure=False,
-        samesite="Lax",
-        max_age=7 * 24 * 60 * 60,
-        path="/api/auth",
-    )
-
-    return response, 200
+    return service.create_login_response(user[0]), 200
 
 
 @auth_bp.route("/me", methods=["GET"])

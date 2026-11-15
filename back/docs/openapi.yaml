@@ -2,7 +2,12 @@ openapi: 3.0.3
 info:
   title: Matcha API
   version: 1.0.0
-  description: Matcha backend API. Authentication operations and shared schemas live in auth.yaml.
+  description: >
+    Matcha backend API. Authentication operations and shared schemas live in auth.yaml.
+    Google and 42 OAuth operations are proposed and not implemented. They use separate
+    redirect/callback routes and shared pending-registration APIs, then reuse existing
+    Matcha JWT/session cookies. Each account has one provider; no linking or switching.
+    See auth.yaml x-social-oauth-design for current-code observations and proposed schema notes.
 servers:
 - url: /
   description: Same origin as the documentation
@@ -50,6 +55,18 @@ paths:
     $ref: ./auth.yaml#/paths/~1api~1auth~1forgot-password
   /api/auth/reset-password:
     $ref: ./auth.yaml#/paths/~1api~1auth~1reset-password
+  /api/auth/google:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1google
+  /api/auth/google/callback:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1google~1callback
+  /api/auth/42:
+    $ref: ./auth.yaml#/paths/~1api~1auth~142
+  /api/auth/42/callback:
+    $ref: ./auth.yaml#/paths/~1api~1auth~142~1callback
+  /api/auth/oauth/pending:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1oauth~1pending
+  /api/auth/oauth/complete:
+    $ref: ./auth.yaml#/paths/~1api~1auth~1oauth~1complete
 components:
   securitySchemes:
     accessCookie:
@@ -64,3 +81,14 @@ components:
       name: refresh_token
       description: HS256 refresh JWT; seven days; HttpOnly; SameSite=Lax; Path=/api/auth; Secure disabled.
         Checked against the active session and rotated on refresh.
+
+    oauthTransactionCookie:
+      type: apiKey
+      in: cookie
+      name: oauth_transaction
+      description: Proposed browser-bound single-use OAuth transaction cookie, 600 seconds, HttpOnly, SameSite=Lax, Path=/api/auth, Secure in production. Not a Matcha login session.
+    oauthPendingCookie:
+      type: apiKey
+      in: cookie
+      name: oauth_pending
+      description: Proposed opaque single-use pending registration cookie, 600 seconds, HttpOnly, SameSite=Lax, Path=/api/auth/oauth, Secure in production. Never authorizes /me.
