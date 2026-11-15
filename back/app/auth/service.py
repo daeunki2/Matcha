@@ -140,18 +140,21 @@ def resend_verification_email(email):
         logger.exception("Verification email resend failed")
         raise
 
-def authenticate_user(email, password):
-    """Find a user by email."""
+def authenticate_user(username, password):
+    """Find a user by username."""
     with get_connection() as conn:
         user = conn.execute(
             """
-            SELECT id, email, password_hash, is_verified
+            SELECT id, username, password_hash, is_verified
             FROM users
-            WHERE email = %s
+            WHERE username = %s
             """,
-            (email,),
+            (username,),
         ).fetchone()
     if user is None:
+        return None
+
+    if user[2] is None:
         return None
 
     if not verify_password(password, user[2]):
@@ -431,6 +434,7 @@ def request_password_reset(email):
             SELECT id
             FROM users
             WHERE email = %s
+              AND auth_provider = 'local'
             """,
             (email,),
         ).fetchone()
@@ -459,25 +463,26 @@ def request_password_reset(email):
         raise
     
 
+
 def reset_password(token, password):
-    """Consume a reset token, update a validated password, and revoke all sessions."""
+    """Reset a local user's password and revoke all sessions."""
     token_hash = tokens.hash_token(token)
     password_hash = hash_password(password)
 
     with get_connection() as conn:
-        result = conn.execute(
+        row = conn.execute(
             """
-            UPDATE password_reset_tokens
-            SET used_at = NOW()
-            WHERE token_hash = %s
-              AND used_at IS NULL
-              AND expires_at > NOW()
-            RETURNING user_id
+            SELECT t.user_id
+            FROM password_reset_tokens AS t
+            JOIN users AS u ON u.id = t.user_id
+            WHERE t.token_hash = %s
+              AND t.used_at IS NULL
+              AND t.expires_at > NOW()
+              AND u.auth_provider = 'local'
+            FOR UPDATE OF t, u
             """,
             (token_hash,),
-        )
-
-        row = result.fetchone()
+        ).fetchone()
 
         if row is None:
             return False
@@ -495,6 +500,15 @@ def reset_password(token, password):
 
         conn.execute(
             """
+            UPDATE password_reset_tokens
+            SET used_at = NOW()
+            WHERE token_hash = %s
+            """,
+            (token_hash,),
+        )
+
+        conn.execute(
+            """
             UPDATE sessions
             SET revoked_at = NOW()
             WHERE user_id = %s
@@ -504,3 +518,146 @@ def reset_password(token, password):
         )
 
     return True
+
+def find_oauth_user(provider, provider_user_id):
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            SELECT id, username, email
+            FROM users
+            WHERE auth_provider = %s
+              AND provider_user_id = %s
+            """,
+            (provider, provider_user_id),
+        ).fetchone()
+
+    return user
+
+
+def find_user_by_email(email):
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            SELECT id, auth_provider
+            FROM users
+            WHERE email = %s
+            """,
+            (email,),
+        ).fetchone()
+
+    return user
+
+def create_oauth_user(username, pending):
+    with get_connection() as conn:
+        user = conn.execute(
+            """
+            INSERT INTO users (
+                username,
+                email,
+                auth_provider,
+                provider_user_id,
+                is_verified
+            )
+            VALUES (%s, %s, %s, %s, TRUE)
+            RETURNING id
+            """,
+            (
+                username,
+                pending["email"],
+                pending["provider"],
+                pending["provider_user_id"],
+            ),
+        ).fetchone()
+
+    return user[0]
+
+
+def create_login_response(user_id):
+    from flask import jsonify
+
+    session_id = create_session(user_id)
+    access_token = create_access_token(user_id, session_id)
+    refresh_token = create_refresh_token(user_id, session_id)
+
+    response = jsonify({"message": "Login successful."})
+
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=False,
+        samesite="Lax",
+        max_age=15 * 60,
+        path="/api",
+    )
+
+    response.set_cookie(
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="Lax",
+        max_age=7 * 24 * 60 * 60,
+        path="/api/auth",
+    )
+
+    return response
+
+
+def create_pending_oauth_signup(provider, provider_user_id, email):
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO oauth_pending_signups
+                (token_hash, auth_provider, provider_user_id, email, expires_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (token_hash, provider, provider_user_id, email, expires_at),
+        )
+
+    return token
+
+
+def complete_pending_oauth_signup(username, token):
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    with get_connection() as conn:
+        with conn.transaction():
+            pending = conn.execute(
+                """
+                SELECT auth_provider, provider_user_id, email
+                FROM oauth_pending_signups
+                WHERE token_hash = %s
+                  AND expires_at > NOW()
+                FOR UPDATE
+                """,
+                (token_hash,),
+            ).fetchone()
+
+            if pending is None:
+                return None
+
+            user = conn.execute(
+                """
+                INSERT INTO users
+                    (username, email, auth_provider,
+                     provider_user_id, is_verified)
+                VALUES (%s, %s, %s, %s, TRUE)
+                RETURNING id
+                """,
+                (username, pending[2], pending[0], pending[1]),
+            ).fetchone()
+
+            conn.execute(
+                """
+                DELETE FROM oauth_pending_signups
+                WHERE token_hash = %s
+                """,
+                (token_hash,),
+            )
+
+    return user[0]

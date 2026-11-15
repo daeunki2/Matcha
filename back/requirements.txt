@@ -22,3 +22,7 @@ PyJWT
 
 #swagger
 flasgger
+
+# OAuth
+Authlib
+requests
