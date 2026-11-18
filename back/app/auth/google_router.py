@@ -1,8 +1,9 @@
 
-from flask import Blueprint, url_for, jsonify
+from flask import Blueprint, url_for, jsonify, redirect
 from app.auth.google_oauth import google
 from app.auth import service
 from authlib.integrations.base_client.errors import OAuthError
+import os
 
 
 google_bp = Blueprint("google_auth", __name__)
@@ -19,12 +20,18 @@ def google_callback():
     try:
         token = google.authorize_access_token()
     except OAuthError:
-        return {"message": "Google authentication failed or was cancelled."}, 400
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
     userinfo = token.get("userinfo")
 
     if not isinstance(userinfo, dict):
-        return {"message": "Invalid Google user information."}, 502
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
     provider_user_id = userinfo.get("sub")
     email = userinfo.get("email")
@@ -35,22 +42,35 @@ def google_callback():
         or not isinstance(email, str)
         or not email
     ):
-        return {"message": "Incomplete Google user information."}, 502
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
     if userinfo.get("email_verified") is not True:
-        return {"message": "Google email is not verified."}, 403
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
     user = service.find_oauth_user("google", provider_user_id)
 
     if user is not None:
-        return service.create_login_response(user[0]), 200
+        response = service.create_login_response(user[0])
+        response.status_code = 302
+        response.headers["Location"] = (
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/auth/callback?status=success"
+        )
+        return response
 
     existing_email = service.find_user_by_email(email)
 
     if existing_email is not None:
-        return {
-            "message": "This email is already registered. Please use your original login method."
-        }, 409
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=account_link_required"
+        )
 
     pending_token = service.create_pending_oauth_signup(
         provider="google",
@@ -69,4 +89,9 @@ def google_callback():
         path="/api/auth",
     )
 
-    return response, 200
+    response.status_code = 302
+    response.headers["Location"] = (
+        os.environ["FRONTEND_URL"].rstrip("/")
+        + "/auth/callback?status=username_required"
+    )
+    return response

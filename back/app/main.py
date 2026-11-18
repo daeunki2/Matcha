@@ -10,6 +10,8 @@ from app.auth.google_oauth import oauth
 from app.auth.google_router import google_bp
 from app.auth.oauth_router import oauth_bp
 from app.auth.ft_router import ft_bp
+from app.users.router import users_bp
+
 
 app = Flask(__name__)
 
@@ -75,6 +77,7 @@ app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(google_bp, url_prefix="/api/auth")
 app.register_blueprint(oauth_bp, url_prefix="/api/auth")
 app.register_blueprint(ft_bp, url_prefix="/api/auth")
+app.register_blueprint(users_bp, url_prefix="/api")
 
 @app.get("/health")
 def health():
