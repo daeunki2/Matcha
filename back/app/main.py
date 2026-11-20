@@ -5,6 +5,7 @@ from flasgger import Swagger
 from pathlib import Path
 from flask import send_from_directory, render_template_string
 from app.auth.router import auth_bp
+from app.db.session import initialize_schema
 import os
 from app.auth.google_oauth import oauth
 from app.auth.google_router import google_bp
@@ -12,6 +13,7 @@ from app.auth.oauth_router import oauth_bp
 from app.auth.ft_router import ft_bp
 
 app = Flask(__name__)
+initialize_schema()
 
 ALLOWED_ORIGINS = {
     origin.strip()

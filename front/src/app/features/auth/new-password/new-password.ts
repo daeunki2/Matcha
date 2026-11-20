@@ -1,8 +1,8 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { afterNextRender, Component, computed, inject, signal, WritableSignal } from '@angular/core';
 import { form, required, FormField } from '@angular/forms/signals';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../services/auth/auth.service';
-import { NotificationService } from '../../../shared/services/notification.service';
 import { password } from '../shared/password.validator';
 import { AuthLayout } from '../auth-layout/auth-layout';
 
@@ -16,9 +16,11 @@ export class NewPassword {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
-  private readonly notificationService = inject(NotificationService);
 
   private readonly token: WritableSignal<string | null> = signal(null);
+  protected readonly status = signal<'idle' | 'success' | 'error'>('idle');
+  protected readonly errorMessage = signal('');
+  protected readonly isSubmitting = signal(false);
 
   private passwordModel = signal<{ password: string }>({ password: '' });
 
@@ -44,19 +46,33 @@ export class NewPassword {
     event.preventDefault();
 
     if (this.form().invalid()) {
-      console.log("Form is invalid", this.form().errors());
+      return;
+    }
+    const token = this.token();
+    if (!token) {
+      this.errorMessage.set('This password reset link is invalid or expired. Please request a new one.');
+      this.status.set('error');
+      return;
     }
     const { password } = this.form().value();
+    this.isSubmitting.set(true);
+    this.errorMessage.set('');
 
-    this.authService.resetPassword(this.token()!, password!).subscribe({
+    this.authService.resetPassword(token, password!).subscribe({
       next: () => {
-        this.notificationService.showSuccess('Your password was successfully updated!');
-        setTimeout(() => this.router.navigate(['/login']), 3000);
-        
+        this.status.set('success');
+        this.isSubmitting.set(false);
       },
-      error: () => {
-        this.notificationService.showSuccess('Error while updating your new password...');
-        setTimeout(() => this.router.navigate(['/login']), 3000);
+      error: (error: unknown) => {
+        this.isSubmitting.set(false);
+        this.status.set('error');
+        if (error instanceof HttpErrorResponse && error.status === 429) {
+          this.errorMessage.set('Too many requests. Please try again later.');
+        } else if (error instanceof HttpErrorResponse && error.status === 400 && typeof error.error?.message === 'string') {
+          this.errorMessage.set(error.error.message);
+        } else {
+          this.errorMessage.set('This password reset link is invalid or expired. Please request a new one.');
+        }
       }
     });
   }
