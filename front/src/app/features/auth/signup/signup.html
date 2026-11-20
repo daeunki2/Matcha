@@ -1,7 +1,8 @@
 
 @if (signupSuccess()) {
   <app-auth-layout [title]="'Registration complete'">
-    <p>Please check your e-mails to verify your account!</p>
+    <p>Please check your email to verify your account.</p>
+    <a class="auth-link text-ct" href="/login">Back to Login</a>
   </app-auth-layout>
 } @else {
   <app-auth-layout [title]="'SignUp'" [subtitle]="'Welcome! Please sign up for your account.'">
@@ -10,14 +11,14 @@
     <div class="flex gap-5">
       <div>
         <label class="auth-label" for="firstName">First Name</label>
-        <input class="auth-input" [class.invalid]="firstnameErrors().length > 0" type="text" [formField]="form.firstname" autocomplete="given-name" />
+        <input id="firstName" class="auth-input" [class.invalid]="firstnameErrors().length > 0" type="text" [formField]="form.firstname" autocomplete="given-name" />
         @for (error of firstnameErrors(); track error) {
           <p class="form-error">{{ error.message }}</p>
         }
       </div>
       <div>
         <label class="auth-label" for="lastName">Last Name</label>
-        <input class="auth-input" [class.invalid]="lastnameErrors().length > 0" type="text" [formField]="form.lastname" autocomplete="family-name" />
+        <input id="lastName" class="auth-input" [class.invalid]="lastnameErrors().length > 0" type="text" [formField]="form.lastname" autocomplete="family-name" />
         @for (error of lastnameErrors(); track error) {
           <p class="form-error">{{ error.message }}</p>
         }
@@ -26,6 +27,7 @@
     <label class="auth-label" for="username">Username</label>
       <input
       class="auth-input"
+      id="username"
       [class.invalid]="usernameErrors().length > 0"
       type="text"
       [formField]="form.username"
@@ -37,6 +39,7 @@
     <label class="auth-label" for="email">Email</label>
       <input
       class="auth-input"
+      id="email"
       [class.invalid]="emailErrors().length > 0"
       type="email"
       autocomplete="email"
@@ -48,14 +51,24 @@
     <label class="auth-label" for="password">Password</label>
       <input
       class="auth-input"
+      id="password"
       [class.invalid]="passwordErrors().length > 0"
       type="password"
       [formField]="form.password"
+      autocomplete="new-password"
       />
       @for (error of passwordErrors(); track error) {
         <p class="form-error">{{ error.message }}</p>
       }
-    <button class="matcha-button" type="submit">Register</button>
+    @if (errorMessage()) {
+      <p class="form-error" role="alert">{{ errorMessage() }}</p>
+    }
+    @if (canResendVerification()) {
+      <a class="auth-link text-ct" href="/verify-email">Resend verification email</a>
+    }
+    <button class="matcha-button" type="submit" [disabled]="isSubmitting()">
+      {{ isSubmitting() ? 'Creating account...' : 'Register' }}
+    </button>
   </form>
   <span class="auth-link text-sm text-ct">Already have an account? <a href="/login">Log in</a></span>
 </app-auth-layout>

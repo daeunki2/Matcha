@@ -1,10 +1,24 @@
-<header>
-
+<header class="app-header">
+  <a class="brand-button" routerLink="/dashboard">Matcha</a>
+  <nav class="account-navigation" aria-label="Account">
+    <a class="username-button" routerLink="/complete_profile">
+      {{ authService.user()?.username ?? 'Username' }}
+    </a>
+    <button class="logout-button" type="button" (click)="logout()" [disabled]="isLoggingOut()">
+      {{ isLoggingOut() ? 'Logging out...' : 'Log out' }}
+    </button>
+  </nav>
 </header>
-<body>
 
-</body>
+<main class="app-main">
+  <router-outlet />
+</main>
 
-<footer>
-	
+<footer class="app-footer">
+  <div>
+    <strong>Legal information</strong>
+    <p>Terms of Service, Privacy Policy, and legal notices must be finalized for your operating jurisdiction before launch.</p>
+    <a class="legal-link" routerLink="/legal">View legal information</a>
+  </div>
+  <small>© {{ currentYear }} Matcha</small>
 </footer>

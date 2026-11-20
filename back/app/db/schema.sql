@@ -1,4 +1,4 @@
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -28,7 +28,7 @@ CREATE TABLE users (
         UNIQUE (auth_provider, provider_user_id)
 );
 
-CREATE TABLE email_verification_tokens (
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE,
@@ -36,7 +36,7 @@ CREATE TABLE email_verification_tokens (
     used_at TIMESTAMPTZ
 );
 
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE,
@@ -44,7 +44,7 @@ CREATE TABLE password_reset_tokens (
     used_at TIMESTAMPTZ
 );
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -54,7 +54,7 @@ CREATE TABLE sessions (
 );
 
 
-CREATE TABLE oauth_pending_signups (
+CREATE TABLE IF NOT EXISTS oauth_pending_signups (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     token_hash TEXT NOT NULL UNIQUE,
     auth_provider VARCHAR(20) NOT NULL,
