@@ -497,7 +497,7 @@ paths:
       - oauthSessionCookie: []
       description: |-
         Authlib exchanges the code on Flask and handles Google OIDC ID-token/userinfo processing. The route requires dictionary userinfo, a nonempty string sub and email, and email_verified strictly true before looking up even a returning user. Resolve users by (auth_provider=google, provider_user_id=sub). An unknown identity with unused email creates a 10-minute oauth_pending_signups record and a pending_oauth cookie. The route does not apply the local email-format validator to provider email.
-        No request body. Provider tokens remain on Flask; only Matcha authentication cookies or a pending-signup cookie are returned to the browser. Errors are JSON, not frontend redirects. Cookie cleanup on failures and no-store/no-referrer headers are not explicitly implemented. Unexpected exceptions are not normalized into a documented JSON 503 response.
+        No request body. Provider tokens remain on Flask; only Matcha authentication cookies or a pending-signup cookie are returned to the browser. Handled OAuth errors, invalid provider information and provider request failures redirect to /login?error=oauth_failed. Email conflicts redirect to /login?error=account_link_required without automatically linking accounts. Cookie cleanup on failures and no-store/no-referrer headers are not explicitly implemented. Unexpected exceptions are not normalized into a documented JSON 503 response.
       parameters:
       - name: state
         in: query
@@ -522,14 +522,23 @@ paths:
       - name: error_description
         in: query
         required: false
-        description: Optional provider error detail; route returns its fixed generic failure message.
+        description: Optional provider error detail; route redirects with a fixed generic error code instead of exposing provider details.
         schema:
           type: string
       responses:
-        '200':
-          description: Either an existing user is logged in, or a new identity awaits username selection.
-            The callback returns JSON; it does not redirect to Angular and has no Location header.
+        '302':
+          description: Existing users receive login cookies and redirect with status=success. New identities
+            receive a pending signup cookie and redirect with status=username_required. Both redirect to
+            FRONTEND_URL (trailing slash removed) plus /auth/callback. The JSON body remains present,
+            but browsers follow Location. Handled failures redirect to /login?error=oauth_failed; email
+            conflicts redirect to /login?error=account_link_required. Failure redirects have Flask's
+            HTML redirect body and do not issue new login or pending cookies. The query is a UI signal,
+            not proof of authentication.
           content:
+            text/html:
+              schema:
+                type: string
+              example: '<!doctype html><title>Redirecting...</title>'
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
@@ -541,47 +550,10 @@ paths:
                   value:
                     message: Username required.
           headers:
+            Location:
+              $ref: '#/components/headers/OAuthCallbackLocation'
             Set-Cookie:
               $ref: '#/components/headers/OAuthCallbackCookies'
-        '400':
-          description: Authlib OAuthError, including authentication denial/cancellation or failed OAuth
-            state processing.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-              example:
-                message: Google authentication failed or was cancelled.
-        '409':
-          description: Unknown provider identity has an email already used by an account. No linking or
-            provider switching. Existing accounts are resolved by provider ID before this check.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-              example:
-                message: This email is already registered. Please use your original login method.
-        '403':
-          description: Google userinfo email_verified is not strictly true.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-              example:
-                message: Google email is not verified.
-        '502':
-          description: Google userinfo is not a dictionary or lacks a nonempty string sub/email.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-              examples:
-                invalid:
-                  value:
-                    message: Invalid Google user information.
-                incomplete:
-                  value:
-                    message: Incomplete Google user information.
   /api/auth/42:
     get:
       tags:
@@ -612,7 +584,7 @@ paths:
       - oauthSessionCookie: []
       description: |-
         Authlib exchanges the code on Flask. Flask then calls https://api.intra.42.fr/v2/me with the provider bearer token and a 10-second request timeout. Requires a dictionary response, integer id (not bool) and nonempty string email, including for returning users. The id is converted to text and matched as (auth_provider=42, provider_user_id=id). An unknown identity with unused email creates pending signup. The current route does not verify email ownership or apply the local email-format validator; signup later sets is_verified=true. This gap is documented, not a guarantee of verified 42 email. 42 tokens are not treated as Google ID tokens.
-        No request body. Provider tokens remain on Flask; only Matcha authentication cookies or a pending-signup cookie are returned to the browser. Errors are JSON, not frontend redirects. Cookie cleanup on failures and no-store/no-referrer headers are not explicitly implemented. Unexpected exceptions are not normalized into a documented JSON 503 response.
+        No request body. Provider tokens remain on Flask; only Matcha authentication cookies or a pending-signup cookie are returned to the browser. Handled OAuth errors, invalid provider information and provider request failures redirect to /login?error=oauth_failed. Email conflicts redirect to /login?error=account_link_required without automatically linking accounts. Cookie cleanup on failures and no-store/no-referrer headers are not explicitly implemented. Unexpected exceptions are not normalized into a documented JSON 503 response.
       parameters:
       - name: state
         in: query
@@ -637,14 +609,23 @@ paths:
       - name: error_description
         in: query
         required: false
-        description: Optional provider error detail; route returns its fixed generic failure message.
+        description: Optional provider error detail; route redirects with a fixed generic error code instead of exposing provider details.
         schema:
           type: string
       responses:
-        '200':
-          description: Either an existing user is logged in, or a new identity awaits username selection.
-            The callback returns JSON; it does not redirect to Angular and has no Location header.
+        '302':
+          description: Existing users receive login cookies and redirect with status=success. New identities
+            receive a pending signup cookie and redirect with status=username_required. Both redirect to
+            FRONTEND_URL (trailing slash removed) plus /auth/callback. The JSON body remains present,
+            but browsers follow Location. Handled failures redirect to /login?error=oauth_failed; email
+            conflicts redirect to /login?error=account_link_required. Failure redirects have Flask's
+            HTML redirect body and do not issue new login or pending cookies. The query is a UI signal,
+            not proof of authentication.
           content:
+            text/html:
+              schema:
+                type: string
+              example: '<!doctype html><title>Redirecting...</title>'
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
@@ -656,43 +637,10 @@ paths:
                   value:
                     message: Username required.
           headers:
+            Location:
+              $ref: '#/components/headers/OAuthCallbackLocation'
             Set-Cookie:
               $ref: '#/components/headers/OAuthCallbackCookies'
-        '400':
-          description: Authlib OAuthError, including authentication denial/cancellation or failed OAuth
-            state processing.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-              example:
-                message: 42 authentication failed or was cancelled.
-        '409':
-          description: Unknown provider identity has an email already used by an account. No linking or
-            provider switching. Existing accounts are resolved by provider ID before this check.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-              example:
-                message: This email is already registered. Please use your original login method.
-        '502':
-          description: 42 profile request/network/HTTP/JSON failure, invalid profile shape, or missing
-            id/email.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-              examples:
-                unavailable:
-                  value:
-                    message: 42 authentication service is temporarily unavailable.
-                invalid:
-                  value:
-                    message: Invalid response from 42.
-                incomplete:
-                  value:
-                    message: Incomplete user information from 42.
   /api/auth/oauth/complete:
     post:
       tags:
@@ -703,7 +651,8 @@ paths:
       description: |-
         Requires the browser's pending_oauth cookie and an allowed Origin. No Matcha access token, refresh token or X-CSRF-Token is required. Origin validation runs first; the route then checks cookie presence, JSON body and username in that order. Additional JSON fields are ignored. Provider, email and provider user ID come exclusively from the pending record.
         The DB record expires after 10 minutes. SELECT FOR UPDATE, user INSERT and pending-record DELETE occur in one transaction. Names and password remain NULL; is_verified is set true for both providers. UNIQUE constraints enforce username/email/provider identity uniqueness. A uniqueness failure rolls back and keeps the pending record; the response does not distinguish which constraint failed. Replay after success returns 401.
-        After account creation commits, the existing login helper creates the Matcha session and JWTs in separate DB operations. Session issuance is not atomic with account creation/pending consumption. Success returns JSON without redirect_url or Location. Only successful completion clears pending_oauth. No /oauth/pending inspection route exists; frontend integration remains to be discussed.
+        Submit the username collected after the callback redirects with status=username_required. That URL status does not authorize signup; the pending_oauth cookie and its unexpired DB record are required.
+        After account creation commits, the existing login helper creates the Matcha session and JWTs in separate DB operations. Session issuance is not atomic with account creation/pending consumption. Success returns 201 JSON without redirect_url or Location. Only successful completion clears pending_oauth. No /oauth/pending inspection route exists.
         An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
       requestBody:
         required: true
@@ -915,8 +864,32 @@ components:
         login JWT. Browser manages this cookie; no custom oauth_transaction cookie is implemented.
       schema:
         type: string
+    OAuthCallbackLocation:
+      description: |-
+        Built from the configured FRONTEND_URL with trailing slashes removed.
+        Existing user: /auth/callback?status=success after setting Matcha login cookies.
+        New identity: /auth/callback?status=username_required after setting pending_oauth;
+        the account is not created until POST /api/auth/oauth/complete succeeds.
+        The username_required status signals that the UI can open a username-entry modal;
+        the backend does not open the modal or decide profile-completion navigation.
+        Handled authentication failures: /login?error=oauth_failed.
+        Email already registered to an unlinked account: /login?error=account_link_required.
+        These error codes are display signals; no automatic account linking is performed.
+      schema:
+        type: string
+        format: uri
+      examples:
+        returning:
+          value: http://localhost:8080/auth/callback?status=success
+        newUser:
+          value: http://localhost:8080/auth/callback?status=username_required
+        failure:
+          value: http://localhost:8080/login?error=oauth_failed
+        emailConflict:
+          value: http://localhost:8080/login?error=account_link_required
     OAuthCallbackCookies:
-      description: 'Returning user: two separate Set-Cookie headers set access_token=<JWT> (Max-Age=900;
+      description: 'Successful callbacks only; handled failures do not issue new Matcha login or pending cookies.
+        Returning user: two separate Set-Cookie headers set access_token=<JWT> (Max-Age=900;
         Path=/api) and refresh_token=<JWT> (Max-Age=604800; Path=/api/auth). New user: pending_oauth=<opaque
         token> (Max-Age=600; Path=/api/auth), without new Matcha JWTs. These cookies are HttpOnly, SameSite=Lax,
         host-only, Secure disabled and include Expires. Authlib may also update/clear its Flask session
@@ -940,8 +913,10 @@ components:
             message: Forbidden origin.
 x-current-implementation-notes:
   oauth-flow-gaps:
-  - Start endpoints redirect to the provider, but callbacks return JSON instead of redirecting to Angular.
-    The intended username-modal/Edit Profile navigation is not implemented.
+  - Successful callbacks return 302 to FRONTEND_URL/auth/callback with status=success or
+    status=username_required and set the corresponding cookies. Handled failures return 302 to
+    FRONTEND_URL/login?error=oauth_failed or /login?error=account_link_required for email conflicts.
+    The backend supplies the modal signal; it does not render a username modal or check profile completion.
   - GET /api/auth/oauth/pending is absent and intentionally not documented as an executable route. Discuss
     its contract with the frontend teammate before implementing.
   - No redirect_url is returned by signup completion. The actual Edit Profile Angular route remains to
@@ -959,5 +934,5 @@ x-current-implementation-notes:
     completion deletes the record atomically with user creation. There is no oauth_flows table. Existing
     sessions and JWT format remain unchanged.
   failure-boundary: DB failures/unexpected provider exceptions can produce Flask default error responses
-    rather than JSON. Only explicitly handled application statuses are described per route. Session creation
+    rather than the documented responses. Only explicitly handled application statuses are described per route. Session creation
     occurs after social account creation commits.

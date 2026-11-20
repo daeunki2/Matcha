@@ -1,8 +1,9 @@
-from flask import Blueprint, url_for, jsonify
+from flask import Blueprint, url_for, jsonify, redirect
 from app.auth.ft_oauth import ft
 from app.auth import service
 from authlib.integrations.base_client.errors import OAuthError
 import requests
+import os
 
 ft_bp = Blueprint("ft_auth", __name__)
 
@@ -18,7 +19,10 @@ def ft_callback():
     try:
         token = ft.authorize_access_token()
     except OAuthError:
-        return {"message": "42 authentication failed or was cancelled."}, 400
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
 
     try:
@@ -30,13 +34,17 @@ def ft_callback():
         response.raise_for_status()
         userinfo = response.json()
     except (requests.RequestException, ValueError):
-        return {
-            "message": "42 authentication service is temporarily unavailable."
-        }, 502
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
 
     if not isinstance(userinfo, dict):
-        return {"message": "Invalid response from 42."}, 502
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
     provider_id = userinfo.get("id")
     email = userinfo.get("email")
@@ -47,7 +55,10 @@ def ft_callback():
         or not isinstance(email, str)
         or not email
     ):
-        return {"message": "Incomplete user information from 42."}, 502
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=oauth_failed"
+        )
 
     provider_user_id = str(provider_id)
 
@@ -55,14 +66,21 @@ def ft_callback():
     user = service.find_oauth_user("42", provider_user_id)
 
     if user is not None:
-        return service.create_login_response(user[0]), 200
+        response = service.create_login_response(user[0])
+        response.status_code = 302
+        response.headers["Location"] = (
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/auth/callback?status=success"
+        )
+        return response
 
     existing_email = service.find_user_by_email(email)
 
     if existing_email is not None:
-        return jsonify({
-            "message": "This email is already registered. Please use your original login method."
-        }), 409
+        return redirect(
+            os.environ["FRONTEND_URL"].rstrip("/")
+            + "/login?error=account_link_required"
+        )
 
     pending_token = service.create_pending_oauth_signup(
         provider="42",
@@ -81,4 +99,9 @@ def ft_callback():
         path="/api/auth",
     )
 
-    return result, 200
+    result.status_code = 302
+    result.headers["Location"] = (
+        os.environ["FRONTEND_URL"].rstrip("/")
+        + "/auth/callback?status=username_required"
+    )
+    return result

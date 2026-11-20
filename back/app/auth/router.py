@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 from psycopg.errors import UniqueViolation
 
 from app.auth import email_service, schemas, service
+from app.users import service as users_service
+
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -143,6 +145,8 @@ def get_current_user():
 
     if user is None:
         return jsonify({"message": "Authentication required."}), 401
+
+    user["profile_completed"] = users_service.is_profile_completed(user["id"])
 
     return jsonify(user), 200
 
