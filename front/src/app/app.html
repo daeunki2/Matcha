@@ -1,1 +1,10 @@
 <router-outlet />
+<div class="notification-stack" aria-live="polite">
+  @for (notification of notificationService.notifications(); track notification.id) {
+    <div class="notification" [attr.data-kind]="notification.kind"
+      [attr.role]="notification.kind === 'error' ? 'alert' : 'status'">
+      <span>{{ notification.message }}</span>
+      <button type="button" (click)="dismissNotification(notification.id)" aria-label="Dismiss notification">×</button>
+    </div>
+  }
+</div>

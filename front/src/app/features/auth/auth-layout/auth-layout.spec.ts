@@ -11,6 +11,7 @@ describe('AuthLayout', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(AuthLayout);
+    fixture.componentRef.setInput('title', 'Test title');
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

@@ -1,10 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { AuthLayout } from '../auth-layout/auth-layout';
-import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth/auth.service';
 import { password } from '../shared/password.validator';
 import { email, form, FormField, pattern, required } from '@angular/forms/signals';
-import { NotificationService } from '../../../shared/services/notification.service';
+import { HttpErrorResponse } from '@angular/common/http';
 
 interface SignupForm {
   firstname: string;
@@ -22,10 +21,11 @@ interface SignupForm {
 })
 export class Signup {
   private readonly authService = inject(AuthService);
-  private readonly notificationService = inject(NotificationService);
 
   protected readonly signupSuccess = signal(false);
-  protected readonly canResendEmail = signal(false);
+  protected readonly errorMessage = signal('');
+  protected readonly isSubmitting = signal(false);
+  protected readonly canResendVerification = signal(false);
 
   private signupModel = signal<SignupForm>({
     firstname: '',
@@ -56,20 +56,37 @@ export class Signup {
     event.preventDefault();
 
     if (this.form().invalid()) {
-      console.log('Form is invalid: ', this.form().errors());
       return;
     }
     
     const { firstname, lastname, username, email, password } = this.form().value();
+    this.errorMessage.set('');
+    this.canResendVerification.set(false);
+    this.isSubmitting.set(true);
 
     this.authService.signup(firstname!, lastname!, username!, email!, password!).subscribe({
       next: () => {
-        this.notificationService.showSuccess('Signup successful! Please check your email to verify your account.');
+        this.isSubmitting.set(false);
         this.signupSuccess.set(true);
       },
-      error: (error) => {
-        if (error.status === 409) {
-          this.notificationService.showError('Email or username already exists');
+      error: (error: unknown) => {
+        this.isSubmitting.set(false);
+        if (error instanceof HttpErrorResponse && error.status === 409) {
+          this.errorMessage.set('That username is already taken. Please choose another.');
+        } else if (error instanceof HttpErrorResponse && error.status === 503) {
+          this.errorMessage.set('Your account was created, but the verification email could not be sent. Please try resending it.');
+          this.canResendVerification.set(true);
+        } else if (error instanceof HttpErrorResponse && error.status === 429) {
+          this.errorMessage.set('Too many requests. Please try again later.');
+        } else if (error instanceof HttpErrorResponse && error.status === 400) {
+          const validationError = error.error?.error;
+          this.errorMessage.set(
+            typeof validationError === 'string'
+              ? validationError
+              : 'Please check your details and try again.'
+          );
+        } else {
+          this.errorMessage.set('Unable to create your account. Please check your details and try again.');
         }
       }
     });
