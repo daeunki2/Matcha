@@ -1,0 +1,1647 @@
+paths:
+  /api/users/me/profile:
+    get:
+      tags:
+      - M2-A · Profiles and accounts
+      summary: '[Partially implemented] Get my profile'
+      description: |-
+        **Status: Basic field retrieval implemented / M2 extensions not implemented.**
+
+        The current response contains a profile object with user_id, gender, sexual_preference, bio and birth_date. If no profile row exists, it returns {"profile": null}.
+
+        **Open questions / Discussion:** Decide whether to include interests/photos and a list of missing fields in this response or provide separate retrieval APIs. These fields are not currently included.
+
+        The 200/401 responses below describe the current contract. Database errors may produce Flask errors without a shared JSON error handler.
+      x-implementation-status: partial
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Current response containing basic profile fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile:
+                    nullable: true
+                    type: object
+                    properties:
+                      user_id:
+                        type: integer
+                        format: int64
+                      gender:
+                        type: string
+                        nullable: true
+                      sexual_preference:
+                        type: string
+                      bio:
+                        type: string
+                        nullable: true
+                      birth_date:
+                        type: string
+                        format: date
+                        nullable: true
+                    required:
+                    - user_id
+                    - gender
+                    - sexual_preference
+                    - bio
+                    - birth_date
+                required:
+                - profile
+              examples:
+                missing:
+                  summary: No profile row
+                  value:
+                    profile: null
+                existing:
+                  summary: Current basic-field response
+                  value:
+                    profile:
+                      user_id: 1
+                      gender: null
+                      sexual_preference: bisexual
+                      bio: null
+                      birth_date: null
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+    patch:
+      tags:
+      - M2-A · Profiles and accounts
+      summary: '[Not implemented · Draft] Create or update my profile'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Proposed partial update: omitted fields remain unchanged, and the server computes profile completion. The first save also creates the profile.
+
+        **Open questions / Discussion:** Required fields, photos, tags and location; allowed gender/preference values; biography length; minimum age; null versus empty strings; empty PATCH requests and unknown fields. A profile row alone must not imply completion.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile:
+                    $ref: '#/components/schemas/CurrentProfile'
+                  profile_completed:
+                    type: boolean
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileFields'
+  /api/users/{id}/profile:
+    get:
+      tags:
+      - M2-A · Profiles and accounts
+      summary: '[Not implemented · Draft] Get another user''s public profile'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Exclude email, password and authentication data. Record the visit and return like/connection status. Online status and last connection time will integrate with M4.
+
+        **Open questions / Discussion:** Blocking in both directions and the choice of 403/404; visibility of incomplete profiles; self-visits and repeat visits; exposing age instead of birth date; location precision; and the meaning of online status before M4.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfile'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Target not found or hidden by policy (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Target user ID. Whether self-interactions are allowed depends on the policies described for
+          each operation.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+  /api/users/me:
+    patch:
+      tags:
+      - M2-A · Profiles and accounts
+      summary: '[Not implemented · Draft] Update account details'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Proposed partial update of first name, last name and username. Email changes use a separate verification flow.
+
+        **Open questions / Discussion:** Whether username changes are allowed, username format and uniqueness handling, required names, collecting missing names for OAuth users, and whether reauthentication is required.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Username conflict (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountPatch'
+  /api/users/me/email-change:
+    post:
+      tags:
+      - M2-A · Profiles and accounts
+      summary: '[Not implemented · Draft] Request email change verification'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Proposed flow: send a verification link to the new address and retain the current email until verification succeeds.
+
+        **Open questions / Discussion:** Current password or recent authentication requirements; whether OAuth accounts may change email; token expiration, resending, duplicate-email responses, delivery limits and the frontend verification-link route.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '202':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Repeated request limit (planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Email delivery failed (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_email:
+                  type: string
+                  format: email
+              required:
+              - new_email
+  /api/users/me/email-change/verify:
+    post:
+      tags:
+      - M2-A · Profiles and accounts
+      summary: '[Not implemented · Draft] Verify an email change'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Apply the new address after validating a single-use token. Proposed contract: bind the token to the authenticated user.
+
+        **Open questions / Discussion:** Login flow when opening the link in another browser; token reuse and concurrent changes; retaining or revoking existing sessions; and the relationship to the OAuth provider email.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email conflict at verification time (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required:
+              - token
+  /api/interests:
+    get:
+      tags:
+      - M2-B · Interests and photos
+      summary: '[Not implemented · Draft] Search interest tags'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Retrieve reusable interest tags.
+
+        **Open questions / Discussion:** Search behavior, sorting, pagination and tag display format.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterestList'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Proposed page size. Default and maximum are undecided.
+        schema:
+          type: integer
+          minimum: 1
+      - name: cursor
+        in: query
+        description: The next_cursor from the previous response. Sorting policy is undecided.
+        schema:
+          type: string
+    post:
+      tags:
+      - M2-B · Interests and photos
+      summary: '[Not implemented · Draft] Create an interest tag'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Create a tag that can be reused by multiple users.
+
+        **Open questions / Discussion:** Lowercase, whitespace and # normalization; Unicode and length limits; returning the existing tag or 409 on duplicates; and creation limits.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '201':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Interest'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The response when the same tag already exists is undecided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+              required:
+              - name
+  /api/users/me/interests:
+    put:
+      tags:
+      - M2-B · Interests and photos
+      summary: '[Not implemented · Draft] Replace my interests'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Proposed contract: replace all existing interests with the supplied interest_ids.
+
+        **Open questions / Discussion:** Minimum and maximum tag counts; empty arrays and duplicate IDs; unknown IDs; and the UI flow for creating and selecting new tags.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Interest'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                interest_ids:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+                  uniqueItems: true
+              required:
+              - interest_ids
+  /api/users/me/photos:
+    post:
+      tags:
+      - M2-B · Interests and photos
+      summary: '[Not implemented · Draft] Upload a photo'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Up to five photos. Validate actual file content and size on the server, and distinguish default avatars from uploaded photos.
+
+        **Open questions / Discussion:** Allowed formats, file sizes and resolutions; EXIF handling; storage and URLs; automatically selecting the first photo as the profile picture; and concurrent upload limits. Image editing and drag-and-drop upload are separate bonus extensions.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '201':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Five-photo limit (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Upload size exceeded. The exact limit is undecided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Unsupported image format. The allowed formats are undecided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+  /api/users/me/photos/{id}/primary:
+    patch:
+      tags:
+      - M2-B · Interests and photos
+      summary: '[Not implemented · Draft] Set the profile picture'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Select one of the current user's photos as the profile picture and clear the previous selection. At most one photo may be primary.
+
+        **Open questions / Discussion:** When having no profile picture is allowed, and how completion is recalculated after changes.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No matching photo owned by the current user (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of a photo owned by the authenticated user.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+  /api/users/me/photos/{id}:
+    delete:
+      tags:
+      - M2-B · Interests and photos
+      summary: '[Not implemented · Draft] Delete a photo'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Delete a photo owned by the current user and clean up the stored file.
+
+        **Open questions / Discussion:** Automatic replacement when deleting the profile picture; completion and like permissions after deleting the last photo; whether existing matches remain; and storage deletion failures.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '204':
+          description: Proposed success response.
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No matching photo owned by the current user (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of a photo owned by the authenticated user.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+  /api/users/me/location:
+    get:
+      tags:
+      - M2-C · Location
+      summary: '[Not implemented · Draft] Get my location'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Retrieve location and GPS consent status. Coordinates are proposed for the current user's own response.
+
+        **Open questions / Discussion:** Response when no location is registered; fields for consent time and source; and city/neighborhood identifiers.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    nullable: true
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        enum:
+                        - gps
+                        - manual
+                      gps_consent:
+                        type: boolean
+                      label:
+                        type: string
+                        description: Display name of the city or neighborhood.
+                      latitude:
+                        type: number
+                        minimum: -90
+                        maximum: 90
+                      longitude:
+                        type: number
+                        minimum: -180
+                        maximum: 180
+                    required:
+                    - source
+                    - gps_consent
+                    - label
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - M2-C · Location
+      summary: '[Not implemented · Draft] Save or update my location'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Use GPS only with explicit consent. Users who decline GPS must manually enter a city or neighborhood to use matching. Proposed contract: source=gps requires consent and coordinates; manual accepts a location name.
+
+        **Open questions / Discussion:** Conditionally required fields; geocoding manual input and handling failures; consent withdrawal semantics; coordinate precision and retention; public location and distance calculation. Validation of source/gps_consent combinations will be finalized during implementation.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: '#/components/schemas/Location'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+  /api/users/{id}/likes:
+    post:
+      tags:
+      - M2-D · User interactions
+      summary: '[Not implemented · Draft] Like a user'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        The current user must have a profile picture. Mutual likes result in connected=true. The server checks the photo, target user and blocking relationship.
+
+        **Open questions / Discussion:** Disallowing self-likes; idempotency and status codes for repeated requests; target photo/completion requirements; and preventing duplicate matches and notifications during concurrent mutual likes.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Target not found or hidden (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Target user ID. Whether self-interactions are allowed depends on the policies described for
+          each operation.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    delete:
+      tags:
+      - M2-D · User interactions
+      summary: '[Not implemented · Draft] Unlike or disconnect'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Unliking removes the connection and chat permission, and restricts subsequent notifications from that user. A connected partner must receive a disconnection notification.
+
+        **Open questions / Discussion:** Ordering the disconnection notification before restricting later notifications; lifting restrictions after liking again; repeated unlike requests; retaining existing messages; and revoking permissions on live connections.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Target not found (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Target user ID. Whether self-interactions are allowed depends on the policies described for
+          each operation.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+  /api/users/me/likes/received:
+    get:
+      tags:
+      - M2-D · User interactions
+      summary: '[Not implemented · Draft] List received likes'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        List users who have liked the current user.
+
+        **Open questions / Discussion:** Sorting, pagination, excluding blocked users and removing withdrawn likes.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivedLikeList'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: limit
+        in: query
+        description: Proposed page size. Default and maximum are undecided.
+        schema:
+          type: integer
+          minimum: 1
+      - name: cursor
+        in: query
+        description: The next_cursor from the previous response. Sorting policy is undecided.
+        schema:
+          type: string
+  /api/users/me/visitors:
+    get:
+      tags:
+      - M2-D · User interactions
+      summary: '[Not implemented · Draft] List profile visitors'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        List users who have visited the current user's profile.
+
+        **Open questions / Discussion:** All visit events versus the latest visit per user; repeat-visit notification frequency; excluding self-visits; blocked users; and retention periods.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitorList'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: limit
+        in: query
+        description: Proposed page size. Default and maximum are undecided.
+        schema:
+          type: integer
+          minimum: 1
+      - name: cursor
+        in: query
+        description: The next_cursor from the previous response. Sorting policy is undecided.
+        schema:
+          type: string
+  /api/users/{id}/blocks:
+    post:
+      tags:
+      - M2-D · User interactions
+      summary: '[Not implemented · Draft] Block a user'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Exclude users in a blocking relationship from search and recommendations, and restrict chat and notifications.
+
+        **Open questions / Discussion:** Public profile access in both directions; removing existing likes/connections; retaining messages; disallowing self-blocking; repeated requests; and event ordering.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '200':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Target not found (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Target user ID. Whether self-interactions are allowed depends on the policies described for
+          each operation.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    delete:
+      tags:
+      - M2-D · User interactions
+      summary: '[Not implemented · Draft] Unblock a user'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Remove a block set by the current user.
+
+        **Open questions / Discussion:** Whether to restore previous likes/connections automatically; which notification restrictions to lift; a block still maintained by the other user; and repeated requests.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '204':
+          description: Proposed success response.
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Target user ID. Whether self-interactions are allowed depends on the policies described for
+          each operation.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+  /api/users/{id}/reports:
+    post:
+      tags:
+      - M2-D · User interactions
+      summary: '[Not implemented · Draft] Report a fake account'
+      description: |-
+        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+
+        Accept a fake-account report. Proposed policy: reporting and blocking are separate actions.
+
+        **Open questions / Discussion:** Whether details are required and their length limit; duplicate/self-reports; request limits; automatic blocking after reporting; and report storage and review procedures.
+
+        Write requests require an allowed Origin, as with the existing authentication endpoints.
+      x-implementation-status: not-implemented
+      security:
+      - accessCookie: []
+      responses:
+        '201':
+          description: Proposed success response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid input (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: A valid access cookie and database session are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
+            Origin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error (shared JSON error handling planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Target not found (draft).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Report request limit (planned).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Target user ID. Whether self-interactions are allowed depends on the policies described for
+          each operation.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  enum:
+                  - fake_account
+                details:
+                  type: string
+              required:
+              - reason
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          description: Proposed machine-readable error code. The code list will be finalized during implementation.
+      required:
+      - message
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+      - message
+    ProfileFields:
+      type: object
+      properties:
+        gender:
+          type: string
+          description: Allowed values and display labels are undecided. Arbitrary strings have not been approved.
+        sexual_preference:
+          type: string
+          description: Defaults to bisexual when unspecified. Allowed values and the gender/preference model require
+            discussion.
+          example: bisexual
+        bio:
+          type: string
+          description: Length limit undecided.
+        birth_date:
+          type: string
+          format: date
+          description: Birth date for age calculation. Minimum age and edit policy are undecided.
+    CurrentProfile:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        gender:
+          type: string
+          nullable: true
+        sexual_preference:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - user_id
+      - gender
+      - sexual_preference
+      - bio
+      - birth_date
+    Interest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          example: vegan
+          description: 'Database rules: lowercase, no surrounding whitespace, and no leading #. API normalization
+            is undecided.'
+      required:
+      - id
+      - name
+    Photo:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          type: string
+          description: Proposed URL for frontend display. The URL supplied instead of a storage key and the access
+            policy are undecided.
+        position:
+          type: integer
+          minimum: 1
+          maximum: 5
+        is_primary:
+          type: boolean
+      required:
+      - id
+      - url
+      - position
+      - is_primary
+    Location:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - gps
+          - manual
+        gps_consent:
+          type: boolean
+        label:
+          type: string
+          description: Display name of the city or neighborhood.
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+      required:
+      - source
+      - gps_consent
+      - label
+    Relationship:
+      type: object
+      properties:
+        liked_by_me:
+          type: boolean
+        likes_me:
+          type: boolean
+        connected:
+          type: boolean
+        can_like:
+          type: boolean
+        can_chat:
+          type: boolean
+      required:
+      - liked_by_me
+      - likes_me
+      - connected
+      - can_like
+      - can_chat
+    PublicUserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        first_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+        age:
+          type: integer
+        primary_photo:
+          nullable: true
+          type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            url:
+              type: string
+              description: Proposed URL for frontend display. The URL supplied instead of a storage key and the
+                access policy are undecided.
+            position:
+              type: integer
+              minimum: 1
+              maximum: 5
+            is_primary:
+              type: boolean
+          required:
+          - id
+          - url
+          - position
+          - is_primary
+        fame_rating:
+          type: number
+          description: Formula, range and update timing are undecided.
+        location_label:
+          type: string
+    AccountPatch:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 50
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        first_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+    PublicProfile:
+      allOf:
+      - $ref: '#/components/schemas/PublicUserSummary'
+      - type: object
+        properties:
+          gender:
+            type: string
+          sexual_preference:
+            type: string
+          bio:
+            type: string
+          interests:
+            type: array
+            items:
+              $ref: '#/components/schemas/Interest'
+          photos:
+            type: array
+            items:
+              $ref: '#/components/schemas/Photo'
+          is_online:
+            type: boolean
+          last_seen_at:
+            type: string
+            format: date-time
+            nullable: true
+          relationship:
+            $ref: '#/components/schemas/Relationship'
+    InterestList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interest'
+        next_cursor:
+          type: string
+          nullable: true
+          description: Cursor pagination is proposed. Sorting, duplicate handling and maximum limit are undecided.
+      required:
+      - items
+      - next_cursor
+    ReceivedLikeList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                $ref: '#/components/schemas/PublicUserSummary'
+              liked_at:
+                type: string
+                format: date-time
+        next_cursor:
+          type: string
+          nullable: true
+          description: Cursor pagination is proposed. Sorting, duplicate handling and maximum limit are undecided.
+      required:
+      - items
+      - next_cursor
+    VisitorList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                $ref: '#/components/schemas/PublicUserSummary'
+              visited_at:
+                type: string
+                format: date-time
+        next_cursor:
+          type: string
+          nullable: true
+          description: Cursor pagination is proposed. Sorting, duplicate handling and maximum limit are undecided.
+      required:
+      - items
+      - next_cursor
