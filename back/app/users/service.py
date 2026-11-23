@@ -56,3 +56,36 @@ def get_my_profile(user_id):
             else None
         ),
     }
+    
+
+
+def save_my_profile(user_id, data):
+    """Create or partially update a user's profile."""
+    fields = ("gender", "sexual_preference", "bio", "birth_date")
+
+    columns = [field for field in fields if field in data]
+
+    insert_columns = ["user_id", *columns]
+    insert_values = [user_id, *(data[field] for field in columns)]
+
+    column_names = ", ".join(insert_columns)
+    placeholders = ", ".join(["%s"] * len(insert_columns))
+
+    updates = ", ".join(
+        f"{field} = EXCLUDED.{field}"
+        for field in columns
+    )
+
+    query = f"""
+        INSERT INTO user_profiles ({column_names})
+        VALUES ({placeholders})
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            {updates},
+            updated_at = NOW()
+    """
+
+    with get_connection() as conn:
+        conn.execute(query, insert_values)
+
+    return get_my_profile(user_id)
