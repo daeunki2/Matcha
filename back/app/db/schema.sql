@@ -71,7 +71,7 @@ CREATE TABLE user_profiles (
         REFERENCES users(id) ON DELETE CASCADE,
 
     gender VARCHAR(50),
-    sexual_preference VARCHAR(50) NOT NULL DEFAULT 'bisexual',
+    sexual_preference VARCHAR(50),
     bio TEXT,
     birth_date DATE,
 
@@ -131,3 +131,12 @@ CREATE TABLE user_photos (
 CREATE UNIQUE INDEX user_photos_one_primary_per_user_idx
     ON user_photos (user_id)
     WHERE is_primary = TRUE;
+
+CREATE TABLE email_change_tokens (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    new_email VARCHAR(255) NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ
+);

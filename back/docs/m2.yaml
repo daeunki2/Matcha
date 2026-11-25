@@ -35,6 +35,7 @@ paths:
                         nullable: true
                       sexual_preference:
                         type: string
+                        nullable: true
                       bio:
                         type: string
                         nullable: true
@@ -61,7 +62,7 @@ paths:
                     profile:
                       user_id: 1
                       gender: null
-                      sexual_preference: bisexual
+                      sexual_preference: null
                       bio: null
                       birth_date: null
         '401':
@@ -73,61 +74,111 @@ paths:
     patch:
       tags:
       - M2-A · Profiles and accounts
-      summary: '[Not implemented · Draft] Create or update my profile'
+      summary: '[Implemented] Create or update my profile'
       description: |-
-        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+        Requires authentication and an allowed Origin. Send a non-empty JSON object containing only gender, sexual_preference, bio and/or birth_date.
 
-        Proposed partial update: omitted fields remain unchanged, and the server computes profile completion. The first save also creates the profile.
+        Omitted fields remain unchanged on update; null clears a field. See the request schema for allowed values and validation rules.
 
-        **Open questions / Discussion:** Required fields, photos, tags and location; allowed gender/preference values; biography length; minimum age; null versus empty strings; empty PATCH requests and unknown fields. A profile row alone must not imply completion.
-
-        Write requests require an allowed Origin, as with the existing authentication endpoints.
-      x-implementation-status: not-implemented
+        Creates the profile on the first save. Both creation and updates return 200 with a profile object.
+      x-implementation-status: implemented
       security:
       - accessCookie: []
       responses:
         '200':
-          description: Proposed success response.
+          description: Profile created or updated. Only profile is returned.
           content:
             application/json:
               schema:
                 type: object
+                required:
+                - profile
                 properties:
                   profile:
                     $ref: '#/components/schemas/CurrentProfile'
-                  profile_completed:
-                    type: boolean
+              example:
+                profile:
+                  user_id: 1
+                  gender: null
+                  sexual_preference: null
+                  bio: Hello!
+                  birth_date: null
         '400':
-          description: Invalid input (draft).
+          description: Invalid JSON, empty object, unknown fields, invalid field values or age below 18.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                invalidObject:
+                  value:
+                    message: Non-empty JSON object required.
+                unknownFields:
+                  value:
+                    message: Unknown profile fields.
+                gender:
+                  value:
+                    message: Invalid gender.
+                sexualPreference:
+                  value:
+                    message: Invalid sexual_preference.
+                bioType:
+                  value:
+                    message: Bio must be a string.
+                bioLength:
+                  value:
+                    message: Bio must be 250 characters or fewer.
+                birthDate:
+                  value:
+                    message: Invalid birth date.
+                age:
+                  value:
+                    message: You must be at least 18 years old.
         '401':
-          description: A valid access cookie and database session are required.
+          description: Missing or invalid access token, or no active matching user session.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                authentication:
+                  value:
+                    message: Authentication required.
         '403':
-          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
-            Origin.
+          description: Missing, null or disallowed Origin. Global Origin validation runs before authentication and
+            input validation.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                origin:
+                  value:
+                    message: Forbidden origin.
         '500':
-          description: Server error (shared JSON error handling planned).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: Unhandled database or server error. A JSON error body is not guaranteed.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ProfileFields'
+            examples:
+              partialUpdate:
+                summary: Update only the biography
+                value:
+                  bio: Hello!
+              clearField:
+                summary: Clear the birth date
+                value:
+                  birth_date: null
+              profileFields:
+                summary: Save all basic fields
+                value:
+                  gender: woman
+                  sexual_preference: bisexual
+                  bio: I enjoy hiking.
+                  birth_date: '1995-06-15'
   /api/users/{id}/profile:
     get:
       tags:
@@ -194,199 +245,311 @@ paths:
     patch:
       tags:
       - M2-A · Profiles and accounts
-      summary: '[Not implemented · Draft] Update account details'
-      description: |-
-        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
-
-        Proposed partial update of first name, last name and username. Email changes use a separate verification flow.
-
-        **Open questions / Discussion:** Whether username changes are allowed, username format and uniqueness handling, required names, collecting missing names for OAuth users, and whether reauthentication is required.
-
-        Write requests require an allowed Origin, as with the existing authentication endpoints.
-      x-implementation-status: not-implemented
+      summary: '[Implemented] Update account details'
+      description: Requires authentication and an allowed Origin. Update first_name and/or last_name; omitted fields
+        remain unchanged. Username and email are not accepted. Returns a user object.
+      x-implementation-status: implemented
       security:
       - accessCookie: []
       responses:
-        '200':
-          description: Proposed success response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Account'
-        '400':
-          description: Invalid input (draft).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '401':
-          description: A valid access cookie and database session are required.
+          description: 'Authentication required: invalid access cookie or inactive session.'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                authentication:
+                  value:
+                    message: Authentication required.
         '403':
-          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
-            Origin.
+          description: Missing, null or disallowed Origin. Checked before authentication.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                origin:
+                  value:
+                    message: Forbidden origin.
         '500':
-          description: Server error (shared JSON error handling planned).
+          description: Unhandled server error. A JSON response is not guaranteed.
+        '200':
+          description: Account details updated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Username conflict (draft).
+                type: object
+                required:
+                - user
+                properties:
+                  user:
+                    $ref: '#/components/schemas/Account'
+              example:
+                user:
+                  id: 1
+                  username: alice
+                  first_name: Alice
+                  last_name: Martin
+        '400':
+          description: Empty or invalid JSON, unknown fields or invalid names.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                object:
+                  value:
+                    message: Non-empty JSON object required.
+                fields:
+                  value:
+                    message: Unknown account fields.
+                firstName:
+                  value:
+                    message: Invalid first_name.
+                lastName:
+                  value:
+                    message: Invalid last_name.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AccountPatch'
+            example:
+              first_name: Alice
+              last_name: Martin
   /api/users/me/email-change:
     post:
       tags:
       - M2-A · Profiles and accounts
-      summary: '[Not implemented · Draft] Request email change verification'
+      summary: '[Implemented] Request email change verification'
       description: |-
-        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+        Requires authentication, an allowed Origin and the current password. Available only for local accounts. The current email stays unchanged until verification.
 
-        Proposed flow: send a verification link to the new address and retain the current email until verification succeeds.
-
-        **Open questions / Discussion:** Current password or recent authentication requirements; whether OAuth accounts may change email; token expiration, resending, duplicate-email responses, delivery limits and the frontend verification-link route.
-
-        Write requests require an allowed Origin, as with the existing authentication endpoints.
-      x-implementation-status: not-implemented
+        Sends a single-use link valid for one hour to the new address: FRONTEND_URL/verify-email-change?token=... . A successful new request invalidates previous active email-change tokens. Submit the link token to the verification endpoint.
+      x-implementation-status: implemented
       security:
       - accessCookie: []
       responses:
-        '202':
-          description: Proposed success response.
+        '401':
+          description: 'Authentication required: invalid access cookie or inactive session.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
-        '400':
-          description: Invalid input (draft).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: A valid access cookie and database session are required.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+              examples:
+                authentication:
+                  value:
+                    message: Authentication required.
         '403':
-          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
-            Origin.
+          description: Disallowed Origin, non-local account or incorrect current password.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                origin:
+                  value:
+                    message: Forbidden origin.
+                provider:
+                  value:
+                    message: Email change is not allowed.
+                password:
+                  value:
+                    message: Incorrect current password.
         '500':
-          description: Server error (shared JSON error handling planned).
+          description: Internal failure. Unhandled exceptions may return a non-JSON response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: Repeated request limit (planned).
+                $ref: '#/components/schemas/Message'
+              examples:
+                internal:
+                  value:
+                    message: Internal server error.
+        '202':
+          description: Verification email sent; current email unchanged.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                accepted:
+                  value:
+                    message: Please verify your new email address.
+        '400':
+          description: Invalid JSON, missing/extra fields, invalid email/password input or unchanged email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                object:
+                  value:
+                    message: Non-empty JSON object required.
+                fields:
+                  value:
+                    message: New email and current password are required.
+                password:
+                  value:
+                    message: Invalid password.
+                email:
+                  value:
+                    message: Invalid email address.
+                sameEmail:
+                  value:
+                    message: New email must be different.
+        '409':
+          description: The new email belongs to another user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                conflict:
+                  value:
+                    message: Email is already in use.
         '503':
-          description: Email delivery failed (draft).
+          description: Email delivery failed after the new token was saved and previous active email-change tokens
+            were expired.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                delivery:
+                  value:
+                    message: Email delivery failed.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+              - new_email
+              - current_password
+              additionalProperties: false
               properties:
                 new_email:
                   type: string
-                  format: email
-              required:
-              - new_email
+                  maxLength: 255
+                  pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
+                  description: No trimming or case normalization. Must differ from the current address and not belong
+                    to another user.
+                current_password:
+                  type: string
+                  format: password
+                  minLength: 1
+            example:
+              new_email: alice.new@example.com
+              current_password: CurrentPassword123!
   /api/users/me/email-change/verify:
     post:
       tags:
       - M2-A · Profiles and accounts
-      summary: '[Not implemented · Draft] Verify an email change'
+      summary: '[Implemented] Verify an email change'
       description: |-
-        **Status: Not implemented / Proposed contract for frontend discussion.** Request fields, response structures and status codes will be finalized during implementation. This draft does not guarantee current runtime behavior; Try it out is not a contract test.
+        Requires authentication as the local account that requested the change and an allowed Origin. Send the unused token before its one-hour expiry. No password is required for this step.
 
-        Apply the new address after validating a single-use token. Proposed contract: bind the token to the authenticated user.
-
-        **Open questions / Discussion:** Login flow when opening the link in another browser; token reuse and concurrent changes; retaining or revoking existing sessions; and the relationship to the OAuth provider email.
-
-        Write requests require an allowed Origin, as with the existing authentication endpoints.
-      x-implementation-status: not-implemented
+        On success, updates the email, keeps the current session, revokes other sessions and invalidates active password-reset tokens. Returns JSON without redirecting or issuing new cookies.
+      x-implementation-status: implemented
       security:
       - accessCookie: []
       responses:
-        '200':
-          description: Proposed success response.
+        '401':
+          description: 'Authentication required: invalid access cookie or inactive session.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Message'
-        '400':
-          description: Invalid input (draft).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: A valid access cookie and database session are required.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+              examples:
+                authentication:
+                  value:
+                    message: Authentication required.
         '403':
-          description: Permission or relationship policy violation. For write requests, this also includes a disallowed
-            Origin.
+          description: Disallowed Origin or non-local account.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                origin:
+                  value:
+                    message: Forbidden origin.
+                provider:
+                  value:
+                    message: Email change is not allowed.
         '500':
-          description: Server error (shared JSON error handling planned).
+          description: Internal failure or another database uniqueness conflict. Unhandled exceptions may return
+            a non-JSON response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                internal:
+                  value:
+                    message: Internal server error.
+        '200':
+          description: Email updated; current session retained.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                success:
+                  value:
+                    message: Email updated successfully.
+        '400':
+          description: Invalid JSON, missing/extra fields, invalid token input or expired/used/unknown token (including
+            a token for another user).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                object:
+                  value:
+                    message: Non-empty JSON object required.
+                fields:
+                  value:
+                    message: Token is required.
+                token:
+                  value:
+                    message: Invalid token.
+                expired:
+                  value:
+                    message: Invalid or expired token.
         '409':
-          description: Email conflict at verification time (draft).
+          description: The new email is already in use at verification time.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Message'
+              examples:
+                conflict:
+                  value:
+                    message: Email is already in use.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+              - token
+              additionalProperties: false
               properties:
                 token:
                   type: string
-              required:
-              - token
+                  minLength: 1
+                  pattern: \S
+                  description: Token from the email link. Must contain a non-whitespace character; the value is
+                    looked up without trimming.
+            example:
+              token: token-from-email-link
   /api/interests:
     get:
       tags:
@@ -1376,22 +1539,43 @@ components:
       - message
     ProfileFields:
       type: object
+      minProperties: 1
+      additionalProperties: false
+      description: At least one supported field is required. Omitted fields remain unchanged on update; null clears
+        a field.
       properties:
         gender:
           type: string
-          description: Allowed values and display labels are undecided. Arbitrary strings have not been approved.
+          nullable: true
+          enum:
+          - man
+          - woman
+          - other
+          - null
+          description: Exact, case-sensitive value; no trimming. Null clears the field.
         sexual_preference:
           type: string
-          description: Defaults to bisexual when unspecified. Allowed values and the gender/preference model require
-            discussion.
-          example: bisexual
+          nullable: true
+          enum:
+          - heterosexual
+          - homosexual
+          - bisexual
+          - null
+          description: Exact, case-sensitive value; no trimming. Null clears the field. No default value is applied.
         bio:
           type: string
-          description: Length limit undecided.
+          nullable: true
+          description: Leading and trailing whitespace is stripped before checking the 250-character limit. Empty
+            or whitespace-only strings are stored as null. The limit applies to the trimmed value, not the raw request
+            string.
         birth_date:
           type: string
-          format: date
-          description: Birth date for age calculation. Minimum age and edit policy are undecided.
+          nullable: true
+          example: '1995-06-15'
+          description: Use YYYY-MM-DD. The implementation parses with Python date.fromisoformat, which also accepts
+            supported basic and ISO week-date forms. Non-string values other than null and invalid dates return
+            400. Age must be at least 18, calculated using the server current date. Null clears the date; omission
+            preserves it on update.
     CurrentProfile:
       type: object
       properties:
@@ -1403,6 +1587,7 @@ components:
           nullable: true
         sexual_preference:
           type: string
+          nullable: true
         bio:
           type: string
           nullable: true
@@ -1540,16 +1725,23 @@ components:
           type: string
     AccountPatch:
       type: object
+      minProperties: 1
+      additionalProperties: false
       properties:
-        username:
-          type: string
-          maxLength: 50
         first_name:
           type: string
+          minLength: 1
           maxLength: 100
+          pattern: ^[a-zA-ZÀ-ÖØ-öø-ÿŒœŠšŽžŸ'-]{1,100}$
+          description: Letters in the specified ranges, apostrophes and hyphens only. No spaces, digits, trimming
+            or null.
         last_name:
           type: string
+          minLength: 1
           maxLength: 100
+          pattern: ^[a-zA-ZÀ-ÖØ-öø-ÿŒœŠšŽžŸ'-]{1,100}$
+          description: Letters in the specified ranges, apostrophes and hyphens only. No spaces, digits, trimming
+            or null.
     Account:
       type: object
       properties:
@@ -1564,6 +1756,11 @@ components:
         last_name:
           type: string
           nullable: true
+      required:
+      - id
+      - username
+      - first_name
+      - last_name
     PublicProfile:
       allOf:
       - $ref: '#/components/schemas/PublicUserSummary'

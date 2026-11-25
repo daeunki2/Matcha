@@ -396,7 +396,7 @@ paths:
       - Authentication
       summary: Reset the password and revoke all sessions
       description: |-
-        Validates the new password before consuming an unused, unexpired password reset token. Atomically consumes the token, updates the password hash, and revokes all sessions belonging to the user. Clears authentication cookies in the current browser on success. Password validation failures do not consume the token. Does not log the user in automatically.
+        Validates the new password before consuming an unused, unexpired password reset token. Atomically consumes the token, updates the password hash, expires other active password-reset and email-change tokens, and revokes all sessions belonging to the user. Clears authentication cookies in the current browser on success. Password validation failures do not consume the token. Does not log the user in automatically.
 
         An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
         Only local-provider users can reset a password. A token not associated with a local account is rejected as invalid.

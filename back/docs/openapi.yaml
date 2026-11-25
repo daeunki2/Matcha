@@ -16,7 +16,7 @@ tags:
   description: Registration, email verification and cookie-based sessions.
 - name: Health
 - name: M2-A · Profiles and accounts
-  description: "M2 is not yet complete. Discuss profile completion criteria, allowed inputs, collecting missing names for OAuth users, and email-change verification policies."
+  description: "Basic profile editing, name updates and email changes are implemented. Public profiles and completion policies remain in progress."
 - name: M2-B · Interests and photos
   description: "M2 is not yet complete. Discuss tag normalization and counts, upload formats and sizes, first-photo behavior, and profile-picture deletion policies."
 - name: M2-C · Location

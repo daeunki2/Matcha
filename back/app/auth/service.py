@@ -435,6 +435,7 @@ def request_password_reset(email):
             FROM users
             WHERE email = %s
               AND auth_provider = 'local'
+            FOR UPDATE
             """,
             (email,),
         ).fetchone()
@@ -456,12 +457,15 @@ def request_password_reset(email):
         )
 
         token = create_password_reset_record(conn, user_id)
+
     try:
-        email_service.send_password_reset_email(email=email, token=token)
+        email_service.send_password_reset_email(
+            email=email,
+            token=token,
+        )
     except email_service.EmailDeliveryError:
         logger.exception("Password reset email delivery failed")
         raise
-    
 
 
 def reset_password(token, password):
@@ -472,14 +476,9 @@ def reset_password(token, password):
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT t.user_id
-            FROM password_reset_tokens AS t
-            JOIN users AS u ON u.id = t.user_id
-            WHERE t.token_hash = %s
-              AND t.used_at IS NULL
-              AND t.expires_at > NOW()
-              AND u.auth_provider = 'local'
-            FOR UPDATE OF t, u
+            SELECT user_id
+            FROM password_reset_tokens
+            WHERE token_hash = %s
             """,
             (token_hash,),
         ).fetchone()
@@ -488,6 +487,36 @@ def reset_password(token, password):
             return False
 
         user_id = row[0]
+
+        user = conn.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE id = %s
+            AND auth_provider = 'local'
+            FOR UPDATE
+            """,
+            (user_id,),
+        ).fetchone()
+
+        if user is None:
+            return False
+
+        result = conn.execute(
+            """
+            UPDATE password_reset_tokens
+            SET used_at = NOW()
+            WHERE token_hash = %s
+            AND user_id = %s
+            AND used_at IS NULL
+            AND expires_at > NOW()
+            RETURNING user_id
+            """,
+            (token_hash, user_id),
+        ).fetchone()
+
+        if result is None:
+            return False
 
         conn.execute(
             """
@@ -501,10 +530,23 @@ def reset_password(token, password):
         conn.execute(
             """
             UPDATE password_reset_tokens
-            SET used_at = NOW()
-            WHERE token_hash = %s
+            SET expires_at = NOW()
+            WHERE user_id = %s
+            AND used_at IS NULL
+            AND expires_at > NOW()
             """,
-            (token_hash,),
+            (user_id,),
+        )
+
+        conn.execute(
+            """
+            UPDATE email_change_tokens
+            SET expires_at = NOW()
+            WHERE user_id = %s
+            AND used_at IS NULL
+            AND expires_at > NOW()
+            """,
+            (user_id,),
         )
 
         conn.execute(
@@ -512,7 +554,7 @@ def reset_password(token, password):
             UPDATE sessions
             SET revoked_at = NOW()
             WHERE user_id = %s
-              AND revoked_at IS NULL
+            AND revoked_at IS NULL
             """,
             (user_id,),
         )
