@@ -76,3 +76,41 @@ def send_password_reset_email(email, token):
         raise EmailDeliveryError(
             "Password reset email sending failed"
         ) from error
+        
+        
+def send_email_change_email(email, token):
+    """Send a verification link to the new email address."""
+    frontend_url = os.environ["FRONTEND_URL"].rstrip("/")
+    query = urlencode({"token": token})
+    verification_url = f"{frontend_url}/verify-email-change?{query}"
+
+    message = EmailMessage()
+    message["From"] = os.environ["EMAIL_FROM"]
+    message["To"] = email
+    message["Subject"] = "Verify your new Matcha email address"
+
+    message.set_content(
+        "We received a request to change your Matcha email address.\n\n"
+        "Click the following link to confirm your new email address:\n"
+        f"{verification_url}\n\n"
+        "This link expires in one hour.\n"
+        "If you did not request this, you can ignore this email."
+    )
+
+    try:
+        with smtplib.SMTP(
+            os.environ["SMTP_HOST"],
+            int(os.environ["SMTP_PORT"]),
+            timeout=10,
+        ) as smtp:
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.login(
+                os.environ["SMTP_USER"],
+                os.environ["SMTP_PASSWORD"],
+            )
+            smtp.send_message(message)
+
+    except (smtplib.SMTPException, OSError) as error:
+        raise EmailDeliveryError(
+            "Email change verification email sending failed"
+        ) from error

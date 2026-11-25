@@ -3,10 +3,11 @@ info:
   title: Matcha API
   version: 1.0.0
   description: |-
-    Current Matcha Flask API. Authentication paths and schemas are in auth.yaml. Open /docs on http://localhost:5001 or http://127.0.0.1:5001; the relative server URL keeps requests and specification loading on that same origin, so no CORS configuration is required. Keep the same hostname throughout a session.
-    POST/PUT/PATCH/DELETE require an exact allowed Origin. Local Compose defaults APP_ENV=development and permits frontend origins on port 8080 and Swagger origins on port 5001. ALLOWED_ORIGINS adds comma-separated exact origins. Outside APP_ENV=development there are no built-in local origins: explicitly configure ALLOWED_ORIGINS for production. Missing/null origins are rejected. Origin is a browser-controlled header, not a Swagger editable authentication credential.
-    JWT access_token and refresh_token are HttpOnly cookies, not bearer tokens returned in JSON. Execute /login with an existing verified local account, then /me, /refresh or /logout in the same browser. Swagger Authorize cannot manually set browser Cookie headers; cookie apiKey schemes describe the contract and cookies are sent automatically. OAuth start routes must be opened as top-level browser navigation, not Try it out. Successful Google/42 callbacks return 302 to FRONTEND_URL/auth/callback with status=success for existing users or status=username_required for pending signup. They retain JSON bodies and set login or pending cookies; browsers follow Location. Handled callback failures redirect to FRONTEND_URL/login?error=oauth_failed; email conflicts redirect to /login?error=account_link_required. These failures have HTML redirect bodies and do not issue new Matcha login or pending cookies. POST /oauth/complete accepts a username with the pending cookie and returns 201 JSON, not a redirect. /oauth/pending does not exist.
-    See auth.yaml x-current-implementation-notes for remaining frontend-flow discrepancies. The separate Flasgger /apidocs page is not this external OpenAPI contract; use /docs.
+    Matcha API documentation.
+
+    Authentication APIs are implemented. M2 APIs are proposals unless marked otherwise.
+
+    **[Not implemented · Draft]** endpoints are unavailable. Open questions will be resolved during implementation.
 servers:
 - url: /
   description: Same origin as the documentation
@@ -14,6 +15,14 @@ tags:
 - name: Authentication
   description: Registration, email verification and cookie-based sessions.
 - name: Health
+- name: M2-A · Profiles and accounts
+  description: "Basic profile editing, name updates and email changes are implemented. Public profiles and completion policies remain in progress."
+- name: M2-B · Interests and photos
+  description: "M2 is not yet complete. Discuss tag normalization and counts, upload formats and sizes, first-photo behavior, and profile-picture deletion policies."
+- name: M2-C · Location
+  description: "M2 is not yet complete. Support explicit GPS consent and manual city/neighborhood input. Discuss geocoding, consent withdrawal and public location precision."
+- name: M2-D · User interactions
+  description: "M2 is not yet complete. Covers visits, likes, connections, blocks, reports and Fame Rating. Real-time delivery integrates with milestone M4."
 paths:
   /health:
     get:
@@ -64,6 +73,38 @@ paths:
     $ref: ./auth.yaml#/paths/~1api~1auth~142~1callback
   /api/auth/oauth/complete:
     $ref: ./auth.yaml#/paths/~1api~1auth~1oauth~1complete
+  /api/users/me/profile:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1profile
+  /api/users/{id}/profile:
+    $ref: ./m2.yaml#/paths/~1api~1users~1{id}~1profile
+  /api/users/me:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me
+  /api/users/me/email-change:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1email-change
+  /api/users/me/email-change/verify:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1email-change~1verify
+  /api/interests:
+    $ref: ./m2.yaml#/paths/~1api~1interests
+  /api/users/me/interests:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1interests
+  /api/users/me/photos:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1photos
+  /api/users/me/photos/{id}/primary:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1photos~1{id}~1primary
+  /api/users/me/photos/{id}:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1photos~1{id}
+  /api/users/me/location:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1location
+  /api/users/{id}/likes:
+    $ref: ./m2.yaml#/paths/~1api~1users~1{id}~1likes
+  /api/users/me/likes/received:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1likes~1received
+  /api/users/me/visitors:
+    $ref: ./m2.yaml#/paths/~1api~1users~1me~1visitors
+  /api/users/{id}/blocks:
+    $ref: ./m2.yaml#/paths/~1api~1users~1{id}~1blocks
+  /api/users/{id}/reports:
+    $ref: ./m2.yaml#/paths/~1api~1users~1{id}~1reports
 components:
   securitySchemes:
     accessCookie:

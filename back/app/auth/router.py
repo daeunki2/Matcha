@@ -146,7 +146,10 @@ def get_current_user():
     if user is None:
         return jsonify({"message": "Authentication required."}), 401
 
-    user["profile_completed"] = users_service.is_profile_completed(user["id"])
+    profile_completed = users_service.is_profile_completed(user["id"])
+
+    user["profile_completed"] = profile_completed
+    user["permissions"] = users_service.get_permissions(profile_completed)
 
     return jsonify(user), 200
 

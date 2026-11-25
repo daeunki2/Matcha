@@ -234,8 +234,13 @@ paths:
       tags:
       - Authentication
       summary: Get the authenticated user
-      description: Requires a valid access JWT and a matching server-side session that is neither revoked
-        nor expired.
+      description: |-
+        Requires a valid access JWT and a matching server-side session that is neither revoked
+        nor expired. profile_completed and permissions are implemented M2 scaffolding: completion currently
+        means only that a user_profiles row exists. can_browse_profiles, can_like and can_chat all mirror
+        that boolean; they do not yet check required fields, photos, matching or blocking. Treat them as
+        incomplete policy signals, not authorization for a particular target. The frontend currently does
+        not consume these fields. M2 must define completion criteria and enforce target-specific permissions.
       security:
       - accessCookie: []
       responses:
@@ -252,6 +257,12 @@ paths:
                 last_name: Martin
                 email: alex@example.com
                 is_verified: true
+                profile_completed: false
+                permissions:
+                  can_edit_profile: true
+                  can_browse_profiles: false
+                  can_like: false
+                  can_chat: false
         '401':
           description: Missing or invalid access JWT, invalid claims, or no matching active user/session.
           content:
@@ -385,7 +396,7 @@ paths:
       - Authentication
       summary: Reset the password and revoke all sessions
       description: |-
-        Validates the new password before consuming an unused, unexpired password reset token. Atomically consumes the token, updates the password hash, and revokes all sessions belonging to the user. Clears authentication cookies in the current browser on success. Password validation failures do not consume the token. Does not log the user in automatically.
+        Validates the new password before consuming an unused, unexpired password reset token. Atomically consumes the token, updates the password hash, expires other active password-reset and email-change tokens, and revokes all sessions belonging to the user. Clears authentication cookies in the current browser on success. Password validation failures do not consume the token. Does not log the user in automatically.
 
         An allowed browser Origin is required before route validation. Missing, null or unlisted Origin returns 403 Forbidden origin. Swagger at localhost:5001 or 127.0.0.1:5001 works in development; browsers supply Origin automatically. For curl/API clients, supply Origin explicitly.
         Only local-provider users can reset a password. A token not associated with a local account is rejected as invalid.
@@ -823,6 +834,8 @@ components:
       - last_name
       - email
       - is_verified
+      - profile_completed
+      - permissions
       properties:
         id:
           type: integer
@@ -839,6 +852,22 @@ components:
           type: string
         is_verified:
           type: boolean
+        profile_completed:
+          type: boolean
+          description: Current implementation only checks profile row existence. M2 required-field policy is pending.
+        permissions:
+          type: object
+          description: Current scaffolding; target-specific authorization is not implemented by these flags.
+          required: [can_edit_profile, can_browse_profiles, can_like, can_chat]
+          properties:
+            can_edit_profile:
+              type: boolean
+            can_browse_profiles:
+              type: boolean
+            can_like:
+              type: boolean
+            can_chat:
+              type: boolean
     OAuthCompleteRequest:
       type: object
       required:
